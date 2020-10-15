@@ -55,7 +55,8 @@ def build_pdb_object( log: Logger,
     """
     if isinstance(loops, int):
         loops = [loops, ] * (len(sses) - 1)
-    if len(sses) != len(loops) + 1 or len(sses) != len(loops) - 1:
+
+    if len(loops) != len(sses) - 1:
         raise ValueError('Number of loops should equal number of SSE minus one.')
 
     pieces = []

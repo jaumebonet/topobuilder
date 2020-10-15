@@ -6,7 +6,7 @@ networkx
 svgwrite
 transforms3d
 bottle
-marshmallow>=3.0
+marshmallow==3.0.0rc3
 pyyaml
 pluginbase==0.7
 rstoolbox
@@ -15,3 +15,5 @@ jinja2
 beautifulsoup4
 lxml
 logbook
+pandas==0.24.0
+StrBioInfo==0.9a0.dev1

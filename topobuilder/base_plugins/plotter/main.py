@@ -107,7 +107,10 @@ class plotter( Node ):
                 self.log.warning(f'Unable to overwrite file {thisoutfile}: Already exists')
                 continue
 
-            fig, ax = getattr(pts, ptype)([Case(i) for i in data], self.plot_params[ptype])
+            if not self.plot_params[ptype]:
+                fig, ax = getattr(pts, ptype)([Case(i) for i in data])
+            else:
+                fig, ax = getattr(pts, ptype)([Case(i) for i in data], self.plot_params[ptype])
             plt.tight_layout()
             plt.savefig(str(thisoutfile), dpi=300)
 
