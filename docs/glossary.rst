@@ -15,6 +15,8 @@ Glossary
     The *Method of Accelerated Search for Tertiary Ensemble Representatives* takes as query a structural fragment composed of one or more disjoint
     segments and provably finds all fragments from a database matching the query to within a given RMSD threshold. :cite:`zhou2015rapid`.
 
+  SKETCH
+    3D representation of a protein structure (backbone atoms only) of a FORM.
 
 
 .. bibliography:: references.bib

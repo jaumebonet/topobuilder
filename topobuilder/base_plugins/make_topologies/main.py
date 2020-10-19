@@ -77,7 +77,8 @@ class make_topologies( Node ):
         else:
             new_cases.extend(self.eval_representatives(
                              self.explore_connectivities(kase), self.representatives, self.sampling))
-        return new_cases
+        TButil.plugin_case_count(len(new_cases))
+        return new_cases[0]
 
 
     def metadata() -> Dict:

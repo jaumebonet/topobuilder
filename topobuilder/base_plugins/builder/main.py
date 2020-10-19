@@ -24,9 +24,9 @@ __all__ = ['builder']
 
 
 class builder( Node ):
-    """Builds 3D SKETCH from given FORM string using ideal SSE elements.
+    """Builds and adds a :term:`SKETCH` from given :term:`FORM` string to the :class:`.Case` using ideal SSE elements.
 
-    If corrections are available and specified, these will be applied onto the sketch.
+    If corrections are available and specified, these will be applied onto the :term:`SKETCH`.
 
     .. caution::
         In order to apply secondary structure or per layer corrections, the :mod:`.corrector` plugin
@@ -34,7 +34,7 @@ class builder( Node ):
 
     :param connectivity: Expected secondary structure connectivity. *Important*: at the moment only a single
                          connectivity supported.
-    :param pick_aa: Desired amino acid type to use for the SKETCH sequence. If not specified, it will
+    :param pick_aa: Desired amino acid type to use for the :term:`SKETCH` sequence. If not specified, it will
                     use pseudorandomly assign amino acid types based on secondary structure propensity scores.
 
     :raises:
@@ -72,6 +72,8 @@ class builder( Node ):
 
         # Apply connectivity?
         if self.connectivity:
+            if case.connectivity_count == 0:
+                raise NodeDataError('Minimum a single connectivity must be provided.')
             if case.connectivity_count > 1:
                 raise NodeDataError('Only single connectivity cases can be build.')
             case = case.cast_absolute().apply_topologies()[0]
