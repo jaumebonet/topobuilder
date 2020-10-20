@@ -60,7 +60,7 @@ class Case( object ):
             try:
                 self.data = json.loads("".join([x.strip() for x in open(init).readlines()]))
             except json.JSONDecodeError:
-                self.data = yaml.load(open(init))
+                self.data = yaml.load(open(init), Loader=yaml.Loader)
 
         self.check()
 
@@ -645,7 +645,7 @@ class Case( object ):
             try:
                 crr = json.loads("".join([x.strip() for x in open(corrections).readlines()]))
             except json.JSONDecodeError:
-                crr = yaml.load(open(corrections))
+                crr = yaml.load(open(corrections), Loader=yaml.Loader)
             return Case(self.data).apply_corrections(crr)
 
         if isinstance(corrections, dict) and not bool(corrections):

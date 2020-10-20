@@ -93,7 +93,8 @@ def createPDS( infile: Union[Path, str], outfile: Optional[str] = None ) -> List
     return shlex.split(f'{createPDS} --type query --pdb {str(infile)} --pds {str(outfile)}')
 
 
-def master_best_each( infile: Union[Path, str],
+def master_best_each( log: Logger,
+                      infile: Union[Path, str],
                       outdir: Union[Path, str],
                       rmsd: Optional[float] = 5.0
                       ) -> List[List[str]]:
@@ -104,7 +105,7 @@ def master_best_each( infile: Union[Path, str],
         Depends on the ``master.pds`` configuration option
     """
     master, _ = get_master_exes()
-    _, pds_list = pds_database()
+    _, pds_list = pds_database(log)
 
     infile = Path(infile)
     if not infile.is_file():

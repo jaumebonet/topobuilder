@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -30,7 +31,7 @@ class builder( Node ):
 
     .. caution::
         In order to apply secondary structure or per layer corrections, the :mod:`.corrector` plugin
-        needs to be set in the pipeline.
+        needs to be set in the :class:`.Pipeline`.
 
     :param connectivity: Expected secondary structure connectivity. *Important*: at the moment only a single
                          connectivity supported.
@@ -94,7 +95,7 @@ class builder( Node ):
             ofile.parent.mkdir(parents=True, exist_ok=True)
             structure, _ = TButil.build_pdb_object( self.log, case.ordered_structures, 2 )
 
-            TButil.plugin_filemaker(f'Writing structure {ofile}')
+            self.log.notice(f'Writing structure {ofile}')
             structure.write(output_file=str(ofile), format='pdb', clean=True,
                             force=TBcore.get_option('system', 'overwrite'))
 

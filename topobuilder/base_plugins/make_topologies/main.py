@@ -77,7 +77,7 @@ class make_topologies( Node ):
         else:
             new_cases.extend(self.eval_representatives(
                              self.explore_connectivities(kase), self.representatives, self.sampling))
-        TButil.plugin_case_count(len(new_cases))
+        self.log.notice(f'case count: {len(new_cases)}')
         return new_cases[0]
 
 

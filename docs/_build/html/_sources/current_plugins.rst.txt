@@ -16,6 +16,7 @@ Basic Management and Visualization
 FORM and Parametric
 -------------------
 
+.. autoclass:: topobuilder.base_plugins.make_topologies.make_topologies
 .. autoclass:: topobuilder.base_plugins.corrector.corrector
 .. autoclass:: topobuilder.base_plugins.motif_picker.motif_picker
 
@@ -36,4 +37,3 @@ Sequence Design
 
 Analytics
 ---------
-

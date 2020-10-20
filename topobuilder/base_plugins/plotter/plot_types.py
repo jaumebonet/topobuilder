@@ -12,6 +12,7 @@ import sys
 import copy
 
 # External Libraries
+from logbook import Logger
 import matplotlib.pyplot as plt
 
 # This Library
@@ -21,7 +22,7 @@ from topobuilder.case import Case, plot_case_sketch, plot_case_sketch_vertical
 __all__ = ['sketchXZ', 'sketchXY']
 
 
-def sketchXZ( cases: List[Case], **kwargs ) -> Tuple[plt.Figure, List[plt.Axes]]:
+def sketchXZ( log: Logger, cases: List[Case], **kwargs ) -> Tuple[plt.Figure, List[plt.Axes]]:
     """
     """
     grid = _calculate_grid(cases, **kwargs)
@@ -37,9 +38,7 @@ def sketchXZ( cases: List[Case], **kwargs ) -> Tuple[plt.Figure, List[plt.Axes]]
     for i, case in enumerate(cases):
         position = (int(i / grid[1]), i % grid[1])
         title = '{0}_{1:03d}'.format(case['configuration.name'], i + 1)
-        if TBcore.get_option('system', 'verbose'):
-            sys.stdout.write('Showing {0}-{3} in position: {1}x{2}\n'.format(title, position[0], position[1],
-                                                                             case.architecture_str))
+        log.info(f'Showing {title}-{case.architecture_str} in position: {position[0]}x{position[1]}\n')
 
         ax = plt.subplot2grid(grid, position, fig=fig)
         axs.append(ax)
@@ -65,16 +64,14 @@ def sketchXZ( cases: List[Case], **kwargs ) -> Tuple[plt.Figure, List[plt.Axes]]
     return fig, axs
 
 
-def sketchXY( cases: List[Case], **kwargs ) -> Tuple[plt.Figure, List[plt.Axes]]:
+def sketchXY( log: Logger, cases: List[Case], **kwargs ) -> Tuple[plt.Figure, List[plt.Axes]]:
     """
     """
     grid = list(_calculate_grid(cases, **kwargs))
     lcount = max([len(c.shape) for c in cases])
     grid[0] = grid[0] * lcount
 
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('Generating an image grid of: {0}x{1}\n'.format(grid[0], grid[1]))
-
+    log.info(f'Generating an image grid of: {grid[0]}x{grid[1]}\n')
     fsize = (kwargs.pop('width', 7.5 * grid[1]),
              kwargs.pop('hight', 7.5 * grid[0] / lcount))
     fig = plt.figure(figsize=fsize)
@@ -83,10 +80,8 @@ def sketchXY( cases: List[Case], **kwargs ) -> Tuple[plt.Figure, List[plt.Axes]]
     for i, case in enumerate(cases):
         position = (int(i / grid[1]), i % grid[1])
         title = '{0}_{1:03d}'.format(case['configuration.name'], i + 1)
-        if TBcore.get_option('system', 'verbose'):
-            sys.stdout.write('Showing {0}-{3} in position: {1}x{2}\n'.format(title, position[0], position[1],
-                                                                             case.architecture_str))
-
+        log.info(f'Showing {title}-{case.architecture_str} in position: {position[0]}x{position[1]}\n')
+        
         lcaxs = []
         for xx in range(lcount):
             p = list(copy.deepcopy(position))

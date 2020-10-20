@@ -15,6 +15,7 @@ import argparse
 from pathlib import Path
 
 # External Libraries
+from logbook import Logger
 
 # This Library
 from topobuilder.case import Case, case_template
@@ -47,8 +48,7 @@ def cli_case_template():
     options = parser.parse_args()
 
     _, outfile = case_template(**vars(options))
-    TButil.plugin_filemaker('New case file created at: {}'.format(os.path.abspath(outfile)))
-
+    
 
 def cli_absolute_case():
     """Transform a relative :class:`.Case` to absolute.

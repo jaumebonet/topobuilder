@@ -44,7 +44,7 @@ class Pipeline( object ):
                 self.protocol = json.loads("".join([x.strip() for x in open(protocol).readlines()]))
                 self.log.info(f'Loading JSON protocol from file {protocol}.')
             except json.JSONDecodeError:
-                self.protocol = yaml.load(open(protocol))
+                self.protocol = yaml.load(open(protocol), Loader=yaml.Loader)
                 self.log.info(f'Loading YAML protocol from file {protocol}.')
         else:
             self.log.info('Loading pre-parsed protocol.')

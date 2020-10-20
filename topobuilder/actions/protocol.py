@@ -44,7 +44,7 @@ def protocol( case: Union[str, Path, Dict, Case],
             protocols = json.loads("".join([x.strip() for x in open(protocol).readlines()]))
             case_format = 'json'
         except json.JSONDecodeError:
-            protocols = yaml.load(open(protocol))
+            protocols = yaml.load(open(protocol), Loader=yaml.Loader)
             case_format = 'yaml'
 
     p = Pipeline(protocols).check(kase.data)

@@ -17,6 +17,7 @@ from subprocess import run, DEVNULL
 import pandas as pd
 
 # This Library
+from logbook import Logger
 from topobuilder.case import Case
 import topobuilder.core as TBcore
 import topobuilder.utils as TButil
@@ -37,13 +38,13 @@ def make_folder_structure( case: Case, statmode: str ) -> Dict:
     return {'global': wfolder, 'main': thisfolder}
 
 
-def make_directed_sketch( case: Case, folder: Path ) -> Path:
+def make_directed_sketch( log: Logger, case: Case, folder: Path ) -> Path:
     """
     """
 
     pdbfile = folder.joinpath('directed_sketch.pdb')
     structure, _ = TButil.build_pdb_object(case.apply_topologies()[0].ordered_structures, 3)
-    TButil.plugin_filemaker('Writing structure {0}'.format(pdbfile))
+    log.notice('New File: Writing structure {pdbfile}')
     structure.write(output_file=str(pdbfile), format='pdb', clean=True, force=True)
     return pdbfile
 

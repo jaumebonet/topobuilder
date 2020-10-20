@@ -18,6 +18,7 @@ from typing import Union, Optional
 import subprocess
 
 # External Libraries
+from logbook import Logger
 
 # This Library
 import topobuilder.core as TBcore
@@ -26,22 +27,22 @@ import topobuilder.core as TBcore
 __all__ = ['slurm_header', 'slurm_pyenv', 'submit_slurm', 'submit_nowait_slurm']
 
 
-def submit_slurm( slurm_file: Union[Path, str],
+def submit_slurm( log: Logger, slurm_file: Union[Path, str],
                   condition_file: Optional[Union[Path, str]] = None ):
     """
     """
     slurm_control_file = (Path(tempfile.mkdtemp('slurm_control'))
                           .joinpath('slurm_control.{}.sh'.format(os.getpid())))
-    condition_file = control_slurm_file(slurm_control_file, condition_file)
+    condition_file = control_slurm_file(log, slurm_control_file, condition_file)
 
-    main_id = submit_nowait_slurm(slurm_file)
-    submit_nowait_slurm(slurm_control_file, 'afterany', main_id)
+    main_id = submit_nowait_slurm(log, slurm_file)
+    submit_nowait_slurm(log, slurm_control_file, 'afterany', main_id)
 
-    wait_for(condition_file)
+    wait_for(log, condition_file)
     os.unlink(str(condition_file))
 
 
-def submit_nowait_slurm( slurm_file: Union[Path, str],
+def submit_nowait_slurm( log: Logger, slurm_file: Union[Path, str],
                          dependency_mode: Optional[str] = None,
                          dependency_id: Optional[int] = None
                          ) -> int:
@@ -53,12 +54,11 @@ def submit_nowait_slurm( slurm_file: Union[Path, str],
     command.append('--parsable')
     command.append(str(slurm_file))
     p = subprocess.run(command, stdout=subprocess.PIPE)
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write(' '.join(command) + '\n')
+    log.info(' '.join(command) + '\n')
     return int(str(p.stdout.decode("utf-8")).strip())
 
 
-def wait_for( condition_file: Optional[Union[Path, str]] ):
+def wait_for( log: Logger, condition_file: Optional[Union[Path, str]] ):
     """
     """
     waiting_time = 0
@@ -66,12 +66,10 @@ def wait_for( condition_file: Optional[Union[Path, str]] ):
         time.sleep(30)
         waiting_time += 1
 
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('Total waiting time: {}h:{}m\n'.format(math.floor(waiting_time / 60),
-                                                                waiting_time % 60))
+    log.info(f'Total waiting time: {math.floor(waiting_time / 60)}h:{waiting_time % 60}m\n')
 
 
-def control_slurm_file( slurm_file: Union[Path, str],
+def control_slurm_file( log: Logger, slurm_file: Union[Path, str],
                         condition_file: Optional[Union[Path, str]] = None
                         ) -> Path:
     """SLURM submission file that will touch a control file.
@@ -89,8 +87,7 @@ def control_slurm_file( slurm_file: Union[Path, str],
         header = slurm_header()
     condition_file = condition_file if condition_file is not None else 'touch_control.{}'.format(os.getpid())
     condition_file = Path().cwd().joinpath(condition_file)
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('A SLURM control file will be generated at {}\n'.format(condition_file))
+    log.info(f'A SLURM control file will be generated at {condition_file}\n')
 
     with open(slurm_file, 'w') as fd:
         fd.write(header + '\n\n')

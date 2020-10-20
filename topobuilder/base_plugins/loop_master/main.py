@@ -145,7 +145,7 @@ class loop_master( Node ):
             checkpoint = wfolder.joinpath('checkpoint.json')
 
             # 2. Check if checkpoint exists, retrieve and skip
-            reload = self.checkpoint_in(checkpoint)
+            reload = self.checkpoint_in(self.log, checkpoint)
             if reload is not None:
                 kase.data['metadata']['loop_fragments'].append(reload)
                 kase.data['metadata']['loop_lengths'].append(int(reload['edges']['loop']))
@@ -200,7 +200,7 @@ class loop_master( Node ):
             start += (sse1l + loopl)
 
             # 10. Checkpoint save
-            self.checkpoint_out(checkpoint, loop_data)
+            self.checkpoint_out(self.log, checkpoint, loop_data)
 
         return kase
 
