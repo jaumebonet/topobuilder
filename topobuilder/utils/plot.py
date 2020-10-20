@@ -63,7 +63,7 @@ def plot_fragment_templates( log: Logger,
 
     imagename = Path(str(prefix) + TBcore.get_option('system', 'image'))
     if write:
-        log.notice('fragment templates image summary at {imagename}')
+        log.notice(f'fragment templates image summary at {imagename}')
         plt.savefig(imagename, dpi=300)
     return fig, imagename
 

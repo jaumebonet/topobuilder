@@ -169,7 +169,7 @@ class imaster( Node ):
 
             # MASTER search
             createpds = TButil.createPDS(query)
-            self.log.notice(f'BASH: {" ".join([str(x) for x in createpds])}')
+            self.log.notice(f'EXECUTE: {" ".join([str(x) for x in createpds])}')
             run(createpds, stdout=DEVNULL)
             masters = TButil.master_best_each(self.log, query.with_suffix('.pds'), stepfolder.joinpath('_master'), self.rmsd)
             data = self.submit_searches(masters, stepfolder, current_case_file, '.'.join([x['id'] for x in sses]))
@@ -773,7 +773,7 @@ class imaster( Node ):
         # Search on MASTER
         result = []
         for com in cmd:
-            self.log.notice(f'BASH: {" ".join([str(x) for x in com])}')
+            self.log.notice(f'EXECUTE: {" ".join([str(x) for x in com])}')
             run(com, stdout=DEVNULL)
             outf = Path(com[-1])
             if outf.is_file():
@@ -791,5 +791,5 @@ class imaster( Node ):
         # Analyze
         createbash = 'python {0} -case {1} -master {2} -present {3} -out {4}'
         cmd = shlex.split(createbash.format(imaster, current_case_file, unimaster, current_sse, unidata))
-        self.log.notice(f'BASH: {" ".join([str(x) for x in cmd])}')
+        self.log.notice(f'EXECUTE: {" ".join([str(x) for x in cmd])}')
         run(cmd, stdout=DEVNULL)

@@ -63,7 +63,7 @@ class corrector( Node ):
                 if isinstance(c, str):
                     self.corrections[i] = Path(c)
         else:
-            corrections = []
+            self.corrections = []
 
     def single_check( self, dummy: Dict ) -> Dict:
         kase = Case(dummy)

@@ -24,6 +24,7 @@ from rstoolbox.io import parse_rosetta_fragments, write_rosetta_fragments, parse
 from topobuilder.case import Case
 from topobuilder.workflow import Node, NodeDataError
 from .core import core
+import topobuilder.utils as TButil
 import topobuilder.utils.plot as TBPlot
 import topobuilder.utils.master as TBMaster
 import topobuilder.utils.structure as TBstructure
@@ -88,7 +89,8 @@ class loop_master( Node ):
 
         # Force is set to True as another MASTER-dependent pluggin might
         # work with a different filter of the database.
-        self.pdsdb, _ = TBMaster.pds_database(self.log, self.filter, force=True)
+        self.pdsdb, _ = TBMaster.pds_database(self.log)
+        #self.pdsdb, _ = TBMaster.pds_database(self.log, self.filter, force=True)
 
         # Load ABEGO and FRAGMENT data specific of this plugin
         self.fragments = self.get_fragfiles()
@@ -145,7 +147,7 @@ class loop_master( Node ):
             checkpoint = wfolder.joinpath('checkpoint.json')
 
             # 2. Check if checkpoint exists, retrieve and skip
-            reload = self.checkpoint_in(self.log, checkpoint)
+            reload = TButil.checkpoint_in(self.log, checkpoint)
             if reload is not None:
                 kase.data['metadata']['loop_fragments'].append(reload)
                 kase.data['metadata']['loop_lengths'].append(int(reload['edges']['loop']))
@@ -177,11 +179,11 @@ class loop_master( Node ):
                 self.log.debug(f'EXECUTE: {" ".join(cmd)}')
                 run(cmd, stdout=DEVNULL)
 
-                # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
-                match_count = self.minimize_master_file(masfile)
+            # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
+            match_count = self.minimize_master_file(masfile)
 
             # 7. Retrieve MASTER data
-            dfloop = self.process_master_data(masfile, sse1_name, sse2_name, is_hairpin and self.harpins_2)
+            dfloop = self.process_master_data(masfile, sse1_name, sse2_name, is_hairpin and self.hairpins_2)
             sse1l, loopl, sse2l = lengths[i], int(dfloop['loop_length'].values[0]), lengths[i + 1]
             total_len = sse1l + loopl + sse2l
             end_edge = total_len + start - 1
@@ -200,7 +202,7 @@ class loop_master( Node ):
             start += (sse1l + loopl)
 
             # 10. Checkpoint save
-            self.checkpoint_out(self.log, checkpoint, loop_data)
+            TButil.checkpoint_out(self.log, checkpoint, loop_data)
 
         return kase
 
@@ -279,7 +281,7 @@ class loop_master( Node ):
             pick = finaldf[finaldf['length_count'] == finaldf['length_count'].max()]['loop_length'].min()
         finaldf = finaldf[finaldf['loop_length'] == pick]
 
-        TBPlot.plot_loop_length_distribution(dfloop, pick, masfile.with_suffix(''), 'loop {} <-> {}'.format(name1, name2))
+        TBPlot.plot_loop_length_distribution(self.log, dfloop, pick, masfile.with_suffix(''), f'loop {name1} <-> {name2}')
 
         df = finaldf.drop(columns=['pds_path'])
         df.to_csv(masfile.with_suffix('.csv'), index=False)
@@ -324,7 +326,7 @@ class loop_master( Node ):
         dfs9all.drop(columns=['pdb', 'frame', 'neighbors', 'neighbor',
                               'aa', 'sse', 'phi', 'psi', 'omega']).to_csv(data['fragfiles'][1] + '.csv', index=False)
         imageprefix = masfile.with_suffix('.fragprofile')
-        TBPlot.plot_fragment_templates(dfs3all, dfs9all, imageprefix)
+        TBPlot.plot_fragment_templates(self.log, dfs3all, dfs9all, imageprefix)
 
         return data
 
