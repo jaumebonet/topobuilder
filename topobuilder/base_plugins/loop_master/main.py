@@ -25,6 +25,7 @@ from topobuilder.case import Case
 from topobuilder.workflow import Node, NodeDataError
 from .core import core
 import topobuilder.utils as TButil
+import topobuilder.core as TBcore
 import topobuilder.utils.plot as TBPlot
 import topobuilder.utils.master as TBMaster
 import topobuilder.utils.structure as TBstructure
@@ -140,9 +141,9 @@ class loop_master( Node ):
 
         for i, sse in enumerate(steps):
             # 1. Make folders and files
-            wfolder = folders.joinpath('loop{:02d}'.format(i + 1))
+            wfolder = folders.joinpath(f'loop{i + 1:02d}')
             wfolder.mkdir(parents=True, exist_ok=True)
-            outfile = wfolder.joinpath('loop_master.jump{:02d}.pdb'.format(i + 1))
+            outfile = wfolder.joinpath(f'loop_master.jump{i + 1:02d}.pdb')
             masfile = outfile.with_suffix('.master')
             checkpoint = wfolder.joinpath('checkpoint.json')
 
@@ -209,7 +210,7 @@ class loop_master( Node ):
     def get_fragfiles( self ) -> pd.DataFrame:
         """Obtain the fragment files.
         """
-        fragpath = Path(core.get_option('master', 'fragments'))
+        fragpath = Path(core.get_option('loop_master', 'fragments'))
         self.log.debug(f'Listing available fragment files at: {fragpath.name}')
         if not fragpath.is_dir():
             raise NodeDataError(f'{fragpath.name} is not a folder.')
@@ -224,14 +225,14 @@ class loop_master( Node ):
         if not abegos.is_file():
             raise NodeDataError(f'ABEGO file {abegos.name} cannot be found.')
 
-        self.log.debug('Loading ABEGO data from: {}\n'.format(abegos.name))
+        self.log.debug(f'Loading ABEGO data from: {abegos.name}\n')
         doopen = gzip.open if abegos.suffix == '.gz' else open
         abegodata = []
         with doopen(abegos, 'rt') as fd:
             for line1, line2 in itertools.zip_longest(*[fd] * 2):
                 line2 = line2 if len(line2.strip()) != 0 else 'NON\n'
                 line1 = line1.strip().lstrip('>').split('_')
-                abegodata.append('{},{},{}'.format(line1[0], line1[1], line2))
+                abegodata.append(f'{line1[0]},{line1[1]},{line2}')
         abegodata = pd.read_csv(StringIO(''.join(abegodata)), names=['pdb', 'chain', 'abego'], header=None)
         abegodata = abegodata[abegodata['abego'] != 'NON']
         return abegodata
@@ -298,10 +299,10 @@ class loop_master( Node ):
         sample = math.ceil(200 / dfloop.shape[0])
         for i, row in dfloop.iterrows():
             # Remember: MASTER match starts with 0!
-            dfs3.append((parse_rosetta_fragments(str(row['3mers']), source='{}_{}'.format(row['pdb'], row['chain']))
+            dfs3.append((parse_rosetta_fragments(str(row['3mers']), source=f'{row["pdb"]}_{row["chain"]}')
                          .slice_region(row['match'][0][0] + 1, row['match'][1][1] + 1).sample_top_neighbors(sample)
                          .renumber(edges['ini']).top_limit(edges['end'])))
-            dfs9.append((parse_rosetta_fragments(str(row['9mers']), source='{}_{}'.format(row['pdb'], row['chain']))
+            dfs9.append((parse_rosetta_fragments(str(row['9mers']), source=f'{row["pdb"]}_{row["chain"]}')
                          .slice_region(row['match'][0][0] + 1, row['match'][1][1] + 1).sample_top_neighbors(sample)
                          .renumber(edges['ini']).top_limit(edges['end'])))
 
@@ -316,10 +317,10 @@ class loop_master( Node ):
 
         self.log.debug('Writing 3mers fragfile\n')
         data['fragfiles'].append(write_rosetta_fragments(dfs3all, prefix=str(masfile.with_suffix('')), strict=True))
-        self.log.debug('3mers fragfile: {}\n'.format(data['fragfiles'][-1]))
+        self.log.debug(f'3mers fragfile: {data["fragfiles"][-1]}\n')
         self.log.debug('Writing 9mers fragfile\n')
         data['fragfiles'].append(write_rosetta_fragments(dfs9all, prefix=str(masfile.with_suffix('')), strict=True))
-        self.log.debug('9mers fragfile: {}\n'.format(data['fragfiles'][-1]))
+        self.log.debug(f'9mers fragfile: {data["fragfiles"][-1]}\n')
 
         dfs3all.drop(columns=['pdb', 'frame', 'neighbors', 'neighbor',
                               'aa', 'sse', 'phi', 'psi', 'omega']).to_csv(data['fragfiles'][0] + '.csv', index=False)

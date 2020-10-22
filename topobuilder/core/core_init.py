@@ -41,7 +41,6 @@ with core.ifndef():
     # For plugins that require MASTER
     core.register_option('master', 'master', shutil.which('master'), 'path_in', 'MASTER executable.')
     core.register_option('master', 'create', shutil.which('createPDS'), 'path_in', 'createPDS executable.')
-    core.register_option('master', 'fragments', None, 'path_in', 'Local fragment database.')
     core.register_option('master', 'pds', None, 'path_in', 'Local PDS database.')
     core.register_option('master', 'pdb', None, 'path_in', 'Local PDB database.')
 

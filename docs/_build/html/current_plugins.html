@@ -214,38 +214,6 @@ be listed in the class attribute <code class="xref py py-attr docutils literal n
 </dd></dl>
 
 <dl class="py class">
-<dt id="topobuilder.base_plugins.builder.builder">
-<em class="property">class </em><code class="sig-name descname">builder</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tag</span></em>, <em class="sig-param"><span class="n">connectivity</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">pick_aa</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">write2disc</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#topobuilder.base_plugins.builder.builder" title="Permalink to this definition">¶</a></dt>
-<dd><p>Builds and adds a <a class="reference internal" href="glossary.html#term-SKETCH"><span class="xref std std-term">SKETCH</span></a> from given <a class="reference internal" href="glossary.html#term-FORM"><span class="xref std std-term">FORM</span></a> string to the <code class="xref py py-class docutils literal notranslate"><span class="pre">Case</span></code> using ideal SSE elements.</p>
-<p>If corrections are available and specified, these will be applied onto the <a class="reference internal" href="glossary.html#term-SKETCH"><span class="xref std std-term">SKETCH</span></a>.</p>
-<div class="admonition caution">
-<p class="admonition-title">Caution</p>
-<p>In order to apply secondary structure or per layer corrections, the <code class="xref py py-mod docutils literal notranslate"><span class="pre">corrector</span></code> plugin
-needs to be set in the pipeline.</p>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>connectivity</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#bool" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>]) – Expected secondary structure connectivity. <em>Important</em>: at the moment only a single
-connectivity supported.</p></li>
-<li><p><strong>pick_aa</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Desired amino acid type to use for the <a class="reference internal" href="glossary.html#term-SKETCH"><span class="xref std std-term">SKETCH</span></a> sequence. If not specified, it will
-use pseudorandomly assign amino acid types based on secondary structure propensity scores.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Raises</dt>
-<dd class="field-even"><dl class="field-list simple">
-<dt class="field-odd">NodeDataError</dt>
-<dd class="field-odd"><p>On <strong>check</strong>. If the required fields to be executed are not there.</p>
-</dd>
-<dt class="field-even">NodeDataError</dt>
-<dd class="field-even"><p>On <strong>execution</strong>. If the <code class="xref py py-class docutils literal notranslate"><span class="pre">Case</span></code> contains anything other than one defined connectivity.</p>
-</dd>
-</dl>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py class">
 <dt id="topobuilder.base_plugins.plotter.plotter">
 <em class="property">class </em><code class="sig-name descname">plotter</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tag</span></em>, <em class="sig-param"><span class="n">outfile</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">prefix</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">plot_types</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#topobuilder.base_plugins.plotter.plotter" title="Permalink to this definition">¶</a></dt>
 <dd><p>Create visual representations of the <a class="reference internal" href="glossary.html#term-FORM"><span class="xref std std-term">FORM</span></a>.</p>
@@ -290,6 +258,38 @@ Parameters are defined for <code class="xref py py-meth docutils literal notrans
 </div>
 <div class="section" id="form-and-parametric">
 <h2>FORM and Parametric<a class="headerlink" href="#form-and-parametric" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="topobuilder.base_plugins.builder.builder">
+<em class="property">class </em><code class="sig-name descname">builder</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tag</span></em>, <em class="sig-param"><span class="n">connectivity</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">pick_aa</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">write2disc</span><span class="o">=</span><span class="default_value">True</span></em><span class="sig-paren">)</span><a class="headerlink" href="#topobuilder.base_plugins.builder.builder" title="Permalink to this definition">¶</a></dt>
+<dd><p>Builds and adds a <a class="reference internal" href="glossary.html#term-SKETCH"><span class="xref std std-term">SKETCH</span></a> from given <a class="reference internal" href="glossary.html#term-FORM"><span class="xref std std-term">FORM</span></a> string to the <code class="xref py py-class docutils literal notranslate"><span class="pre">Case</span></code> using ideal SSE elements.</p>
+<p>If corrections are available and specified, these will be applied onto the <a class="reference internal" href="glossary.html#term-SKETCH"><span class="xref std std-term">SKETCH</span></a>.</p>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>In order to apply secondary structure or per layer corrections, the <code class="xref py py-mod docutils literal notranslate"><span class="pre">corrector</span></code> plugin
+needs to be set in the <code class="xref py py-class docutils literal notranslate"><span class="pre">Pipeline</span></code>.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>connectivity</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#bool" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">bool</span></code></a>]) – Expected secondary structure connectivity. <em>Important</em>: at the moment only a single
+connectivity supported.</p></li>
+<li><p><strong>pick_aa</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Desired amino acid type to use for the <a class="reference internal" href="glossary.html#term-SKETCH"><span class="xref std std-term">SKETCH</span></a> sequence. If not specified, it will
+use pseudorandomly assign amino acid types based on secondary structure propensity scores.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><dl class="field-list simple">
+<dt class="field-odd">NodeDataError</dt>
+<dd class="field-odd"><p>On <strong>check</strong>. If the required fields to be executed are not there.</p>
+</dd>
+<dt class="field-even">NodeDataError</dt>
+<dd class="field-even"><p>On <strong>execution</strong>. If the <code class="xref py py-class docutils literal notranslate"><span class="pre">Case</span></code> contains anything other than one defined connectivity.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
 <dl class="py class">
 <dt id="topobuilder.base_plugins.make_topologies.make_topologies">
 <em class="property">class </em><code class="sig-name descname">make_topologies</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tag</span></em>, <em class="sig-param"><span class="n">representatives</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">sampling</span><span class="o">=</span><span class="default_value">1</span></em><span class="sig-paren">)</span><a class="headerlink" href="#topobuilder.base_plugins.make_topologies.make_topologies" title="Permalink to this definition">¶</a></dt>
@@ -494,6 +494,47 @@ as defined by the <code class="docutils literal notranslate"><span class="pre">m
 </div>
 <div class="section" id="protein-backbone">
 <h2>Protein Backbone<a class="headerlink" href="#protein-backbone" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="topobuilder.base_plugins.imaster.imaster">
+<em class="property">class </em><code class="sig-name descname">imaster</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tag</span></em>, <em class="sig-param"><span class="n">rmsd</span><span class="o">=</span><span class="default_value">5.0</span></em>, <em class="sig-param"><span class="n">bin</span><span class="o">=</span><span class="default_value">'mid'</span></em>, <em class="sig-param"><span class="n">step</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">corrections</span><span class="o">=</span><span class="default_value">{}</span></em><span class="sig-paren">)</span><a class="headerlink" href="#topobuilder.base_plugins.imaster.imaster" title="Permalink to this definition">¶</a></dt>
+<dd><p>Searches for defined per secondary structure or layer corrections by matching layer-wise against
+a defined <span class="xref std std-ref">MASTER</span> database. If a beta-layer is present, this will be the starting layer to be
+corrected. Multiple beta-layers are sorted by size (number of strands) and the largest one is set as
+starting layer. From there on, all next layers will be corrected paire-wise, e.g. the previous
+corrected layer together with the next layer.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Multiple correction shemes can be set. The default correction sheme is layer tilt around the x-axis and
+layer points (shifts) along the y-axis.</p>
+</div>
+<div class="admonition caution">
+<p class="admonition-title">Caution</p>
+<p>Depending on the size of the queried <span class="xref std std-ref">MASTER</span> database, this may take <strong>a lot of time</strong>.
+If possible, please use the <code class="docutils literal notranslate"><span class="pre">slurm.use</span></code> configuration. In case this is not possible, you may
+reduce the size of the database by setting <code class="docutils literal notranslate"><span class="pre">master.pds</span></code> pointing to fewer structures to search over.</p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>rmsd</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#float" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code></a>]) – RMSD threshold for master search (default: 5.0).</p></li>
+<li><p><strong>bin</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Starting bin for master corrections (default: mid).</p></li>
+<li><p><strong>step</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#int" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">int</span></code></a>]) – Path of how the layers are searched for corrections.</p></li>
+<li><p><strong>corrections</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code>]) – File containing the corrections.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises</dt>
+<dd class="field-even"><dl class="field-list simple">
+<dt class="field-odd">NodeOptionsError</dt>
+<dd class="field-odd"><p>On <strong>initialization</strong>. If a reserved key is provided as a subname.</p>
+</dd>
+<dt class="field-even">NodeDataError</dt>
+<dd class="field-even"><p>On <strong>check</strong>. If the required fields to be executed are not there.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 <div class="section" id="sequence-design">
 <h2>Sequence Design<a class="headerlink" href="#sequence-design" title="Permalink to this headline">¶</a></h2>
