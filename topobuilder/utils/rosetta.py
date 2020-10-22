@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
-
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
     Bruno Correia <bruno.correia@epfl.ch>
@@ -20,7 +18,7 @@ from topobuilder.case import Case
 import topobuilder.core as TBcore
 
 
-__all__ = ['rosettascript', 'funfoldes', 'constraint_design']
+__all__ = ['rosettascript', 'get_weight_patches', 'funfoldes', 'hybridize', 'constraint_design']
 
 
 class ScriptPieces( dict ):
@@ -31,6 +29,172 @@ class ScriptPieces( dict ):
             if k in self or k in other:
                 data.setdefault(k, [x for x in self.get(k, ['', ]) + other.get(k, ['', ]) if len(x) > 0])
         return data
+
+def get_weight_patches():
+    """
+    """
+    wts0 = textwrap.dedent("""\
+    # score0 from rosetta++, used in stage 1 of the
+    # ClassicAbinitio protocol.
+    # Score 0 has a vdw weight of 1, in R++, but then it divides
+    # the vdw score by 10 and rounds down to nearest integer.
+    # Mini does not round down to the nearest integer.
+    env     0.0
+    pair    0.0
+    cbeta   0.0
+    vdw     0.1
+    rg      0.0
+    cenpack 0.0
+    hs_pair 0.0
+    ss_pair 0.0
+    rsigma  0.0 """)
+
+    wts0_patch = textwrap.dedent("""\
+    env     = 0.0
+    pair    = 0.0
+    cbeta   = 0.0
+    vdw     = 0.1
+    rg      = 0.0
+    cenpack = 0.0
+    hs_pair = 0.0
+    ss_pair = 0.0
+    rsigma  = 0.0
+    hbond_sr_bb = 0.3
+    hbond_lr_bb = 0.7
+    rsigma  = 0.2
+    sheet   = 0.2
+    ss_pair = 0.2
+    hs_pair = 0.2 """)
+
+    wts1 = textwrap.dedent("""\
+    # score1 from rosetta++, used in stage 2 of ClassicAbinitio
+    # protocol from Rosetta++.
+    env     1.0
+    pair    1.0
+    cbeta   0.0
+    vdw     1.0
+    rg      0.0
+    cenpack 0.0
+    hs_pair 1.0
+    ss_pair 0.3
+    rsigma  0.0
+    sheet   1.0
+    STRAND_STRAND_WEIGHTS 1 11 """)
+
+    wts1_patch = textwrap.dedent("""\
+    env     = 1.0
+    pair    = 1.0
+    cbeta   = 0.0
+    vdw     = 1.0
+    rg      = 0.0
+    cenpack = 0.0
+    rsigma  = 1.1
+    sheet   = 1.0
+    ss_pair = 1.0
+    hs_pair = 1.0
+    hbond_sr_bb = 1.17
+    hbond_lr_bb = 2.0
+    STRAND_STRAND_WEIGHTS 1 3 """)
+
+    wts2 = textwrap.dedent("""\
+    # score2 from rosetta++, used in stage 3 of ClassicAbinitio protocol.
+    env     1.0
+    pair    1.0
+    cbeta   0.25
+    cenpack 0.5
+    vdw     1.0
+    rg      0.0
+    hs_pair 1.0
+    ss_pair 1.0
+    rsigma  0.0
+    sheet   1.0
+    STRAND_STRAND_WEIGHTS 1 6 """)
+
+    wts2_patch = textwrap.dedent("""\
+    env     = 1.0
+    pair    = 1.0
+    cbeta   = 0.25
+    cenpack = 0.5
+    vdw     = 1.0
+    rg      = 0.0
+    rsigma  = 0.7
+    sheet   = 0.7
+    ss_pair = 0.7
+    hs_pair = 0.7
+    hbond_sr_bb = 1.17
+    hbond_lr_bb = 2.0
+    angle_constraint = 0.3
+    dihedral_constraint = 0.3
+    STRAND_STRAND_WEIGHTS 1 3 """)
+
+    wts3 = textwrap.dedent("""\
+    # score3 from rosetta++, used in stage 4 of the ClassicAbinitio protocol.
+    env     1.0
+    pair    1.0
+    cbeta   1.0
+    vdw     1.0
+    rg      3.0
+    cenpack 1.0
+    hs_pair 1.0
+    ss_pair 1.0
+    rsigma  1.0
+    sheet   1.0
+    STRAND_STRAND_WEIGHTS 1 6 """)
+
+    wts3_patch = textwrap.dedent("""\
+    env     = 1.0
+    pair    = 1.0
+    cbeta   = 1.0
+    vdw     = 1.0
+    rg      = 2.0
+    cenpack = 1.0
+    hbond_sr_bb = 1.17
+    rsigma  = 1.17
+    sheet   = 1.17
+    ss_pair = 1.17
+    hs_pair = 1.17
+    hbond_lr_bb = 2.0
+    angle_constraint = 0.3
+    dihedral_constraint = 0.3
+    STRAND_STRAND_WEIGHTS 1 2 """)
+
+    wts5 = textwrap.dedent("""\
+    # score5.wts, used in stage 3 of ClassicAbinitio protocol
+    env     1.0
+    pair    1.0
+    cbeta   0.25
+    cenpack 0.5
+    hs_pair 1.0
+    ss_pair 1.0
+    rsigma  0.0
+    sheet   1.17
+    rg      0.0
+    vdw     1.0
+    STRAND_STRAND_WEIGHTS 1 6 """)
+
+    wts5_patch = textwrap.dedent("""\
+    env     = 1.0
+    pair    = 1.0
+    cbeta   = 0.25
+    cenpack = 0.5
+    rg      = 0.0
+    vdw     = 1.0
+    rsigma  = 1.17
+    sheet   = 1.17
+    ss_pair = 1.17
+    hs_pair = 1.17
+    hbond_sr_bb = 1.17
+    hbond_lr_bb = 2.0
+    angle_constraint = 0.3
+    dihedral_constraint = 0.3
+    STRAND_STRAND_WEIGHTS 1 3 """)
+
+    wts_pieces = [wts0, wts0_patch,
+                  wts1, wts1_patch,
+                  wts2, wts2_patch,
+                  wts3, wts3_patch,
+                  wts5, wts5_patch,]
+    return wts_pieces
 
 
 def constraint_minimization(  case: Case, natbias: float ) -> ScriptPieces:
@@ -87,6 +251,12 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True ) -
         <Reweight scoretype="dihedral_constraint" weight="1.0" />
         <Reweight scoretype="hbond_lr_bb" weight="2.0" />
     </ScoreFunction>
+    <ScoreFunction name="sfxn_cstdes_cart" weights="ref2015_cart">
+        <Reweight scoretype="atom_pair_constraint" weight="1.0" />
+        <Reweight scoretype="angle_constraint" weight="1.0" />
+        <Reweight scoretype="dihedral_constraint" weight="1.0" />
+        <Reweight scoretype="hbond_lr_bb" weight="2.0" />
+    </ScoreFunction>
     """), ]
 
     residueselectors = [SELECTOR_SecondaryStructure('sse_cstdes', case), ]
@@ -100,23 +270,29 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True ) -
     <SavePoseMover name="spose_cstdes" reference_name="eminPose_cstdes" restore_pose="0" />
     <AddConstraints name="cst_cstdes" >
         <SegmentedAtomPairConstraintGenerator name="cst_seg_cstdes" residue_selector="sse_cstdes" >
-            <Outer sd="2.0" weight="0.5" ca_only="1" use_harmonic="1" unweighted="0" max_distance="40" />
+            <Outer sd="2.0" weight="1.0" ca_only="1" use_harmonic="1" unweighted="0" max_distance="40" />
         </SegmentedAtomPairConstraintGenerator>
-        <AutomaticSheetConstraintGenerator name="cst_sheet_cstdes" sd="2.0" distance="6.1" />
-    </AddConstraints>"""), #MOVER_SetSecStructEnergies( 'ssse_cstdes', 'sfxn_cstdes', natbias, case ),
+        <!--AutomaticSheetConstraintGenerator name="cst_sheet_cstdes" sd="2.0" distance="6.1" /-->
+    </AddConstraints>
+    <RemoveConstraints name="rm_cstdes" constraint_generators="cst_seg_cstdes" />"""),
+    MOVER_SetSecStructEnergies( 'ssse_cstdes', 'sfxn_cstdes', natbias, case ), MOVER_SetSecStructEnergies( 'ssse_cstdes_cart', 'sfxn_cstdes_cart', natbias, case ),
               textwrap.dedent("""\
-    <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes" relaxscript="MonomerDesign2019" task_operations="layer_design"/>
+    <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019" task_operations="layer_design" ramp_down_constraints="false" repeats="5" dualspace="true"/>
     """) if layer_design else textwrap.dedent("""\
-    <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes" relaxscript="MonomerDesign2019"/>""")]
+    <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019" ramp_down_constraints="false" repeats="5" dualspace="true"/>"""),
+              textwrap.dedent("""\
+    <FastRelax name="cst_cstrel" scorefxn="sfxn_cstdes_cart" repeats="5" cartesian="true"/>""")]
 
     protocols = [textwrap.dedent("""\
+    <Add mover="ssse_cstdes" />
     <Add mover="spose_cstdes" />
     <Add mover="cst_cstdes" />
     <Add mover="design_cstdes" />
+    <Add mover="rm_cstdes" />
+    <Add mover="ssse_cstdes_cart" />
+    <Add mover="cst_cstrel" />
     <Add filter="rmsd_cstdes" />
     """), ]
-
-    ##  Add mover="ssse_cstdes" />
 
     ld = PROTOCOL_LayerDesign(case) if layer_design else ScriptPieces()
     bf = PROTOCOL_BasicFilters(case, '_cstdes')
@@ -127,7 +303,7 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True ) -
 def funfoldes( case: Case ) -> str:
     """
     """
-    mid = math.floor(len(case.secondary_structure) / 2)
+    mid = 2 # math.floor(len(case.secondary_structure) / 2)
     residueselectors = [textwrap.dedent("""<Index name="piece_ffd" resnums="{}-{}" />""").format(mid - 1, mid + 1),
                         SELECTOR_SecondaryStructure('sse_ffd', case)]
 
@@ -140,14 +316,14 @@ def funfoldes( case: Case ) -> str:
         <StructFragmentMover name="makeFrags_ffd" prefix="frags" small_frag_file="{}" large_frag_file="{}" />
         <AddConstraints name="foldingCST_ffd" >
             <SegmentedAtomPairConstraintGenerator name="foldCST" residue_selector="sse_ffd" >
-                <Inner sd="1.2" weight="1." ca_only="1"
-                    use_harmonic="true" unweighted="false" min_seq_sep="4" />
+                <!--Inner sd="1.2" weight="1." ca_only="1"
+                    use_harmonic="true" unweighted="false" min_seq_sep="4" /-->
                 <Outer sd="2" weight="2." ca_only="1"
                     use_harmonic="true" unweighted="false"  max_distance="40" />
             </SegmentedAtomPairConstraintGenerator>
-            <AutomaticSheetConstraintGenerator name="sheetCST" sd="2.0" distance="6.1" />
+            <!--AutomaticSheetConstraintGenerator name="sheetCST" sd="2.0" distance="6.1" /-->
         </AddConstraints>
-        <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10" >
+        <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10" correction_weights="0">
         """).format(*case['metadata.fragments.files']), textwrap.dedent("""\
             <Nub reference_name="sketchPose_ffd" residue_selector="piece_ffd" >
                 <Segment order="1" n_term_flex="2" c_term_flex="1" editable="1,2,3"/></Nub>
@@ -165,6 +341,99 @@ def funfoldes( case: Case ) -> str:
         bf = PROTOCOL_BasicFilters(case, '_ffd')
     return ScriptPieces({'movers': movers, 'filters': filters,
                          'residueselectors': residueselectors, 'protocols': protocols}) + bf
+
+
+def hybridize( case: Case, template: str, natbias: float ) -> str:
+    """
+    """
+    #mid = math.floor(len(case.secondary_structure) / 2)
+    mid = 2
+    scorefxns = [textwrap.dedent("""\
+    <ScoreFunction name="fa" weights="ref2015">
+      <Reweight scoretype="coordinate_constraint" weight="1" />
+      <Reweight scoretype="atom_pair_constraint" weight="1" />
+      <Reweight scoretype="dihedral_constraint" weight="1" />
+      <Reweight scoretype="angle_constraint" weight="1" />
+      <Reweight scoretype="rsigma" weight="1.17" />
+      <Reweight scoretype="sheet" weight="2.0" />
+      <Reweight scoretype="ss_pair" weight="2.0" />
+      <Reweight scoretype="hs_pair" weight="2.0" />
+      <Reweight scoretype="hbond_sr_bb" weight="1.17" />
+      <Reweight scoretype="hbond_lr_bb" weight="2.0" />
+    </ScoreFunction>
+    <ScoreFunction name="stage1" weights="score3">
+      <Reweight scoretype="coordinate_constraint" weight="1" />
+      <Reweight scoretype="atom_pair_constraint" weight="1" />
+      <Reweight scoretype="dihedral_constraint" weight="1" />
+      <Reweight scoretype="angle_constraint" weight="1" />
+      <Reweight scoretype="rsigma" weight="1.17" />
+      <Reweight scoretype="sheet" weight="2.0" />
+      <Reweight scoretype="ss_pair" weight="2.0" />
+      <Reweight scoretype="hs_pair" weight="2.0" />
+      <Reweight scoretype="hbond_sr_bb" weight="1.17" />
+      <Reweight scoretype="hbond_lr_bb" weight="2.0" />
+    </ScoreFunction>
+    <ScoreFunction name="stage2" weights="score4_smooth_cart">
+      <Reweight scoretype="coordinate_constraint" weight="1" />
+      <Reweight scoretype="atom_pair_constraint" weight="1" />
+      <Reweight scoretype="dihedral_constraint" weight="1" />
+      <Reweight scoretype="angle_constraint" weight="1" />
+      <Reweight scoretype="rsigma" weight="1.17" />
+      <Reweight scoretype="sheet" weight="2.0" />
+      <Reweight scoretype="ss_pair" weight="2.0" />
+      <Reweight scoretype="hs_pair" weight="2.0" />
+      <Reweight scoretype="hbond_sr_bb" weight="1.17" />
+      <Reweight scoretype="hbond_lr_bb" weight="2.0" />
+    </ScoreFunction>
+    """), ]
+
+    residueselectors = [textwrap.dedent("""\
+    <Index name="piece_ffd" resnums="{}-{}" />
+    """).format(mid - 1, mid + 1), SELECTOR_SecondaryStructure('sse_ffd', case)]
+
+    filters = [textwrap.dedent("""\
+        <RmsdFromResidueSelectorFilter name="rmsd_ffd" reference_selector="sse_ffd"
+            reference_name="sketchPose_ffd" query_selector="sse_ffd" confidence="0." />""")]
+
+    movers = [MOVER_PeptideStubMover('add_loops_ffd', case, 'VAL'),
+    #MOVER_SetSecStructEnergies('sse_energies', 'fa', natbias, case),
+    textwrap.dedent("""\
+        <SavePoseMover name="save_ffd" reference_name="sketchPose_ffd" restore_pose="0" />
+        <AddConstraints name="foldingCST_ffd" >
+            <SegmentedAtomPairConstraintGenerator name="foldCST" residue_selector="sse_ffd" >
+                <!--Inner sd="1.2" weight="1." ca_only="1"
+                    use_harmonic="true" unweighted="false" min_seq_sep="4" /-->
+                <Outer sd="2" weight="2." ca_only="1"
+                    use_harmonic="true" unweighted="false"  max_distance="40" />
+            </SegmentedAtomPairConstraintGenerator>
+            <AutomaticSheetConstraintGenerator name="sheetCST" sd="2.0" distance="6.1" />
+        </AddConstraints>"""),
+        MOVER_SetSecStructEnergies( 'ssse_stage1', 'stage1', natbias, case ),
+        MOVER_SetSecStructEnergies( 'ssse_stage2', 'stage2', natbias, case ),
+        MOVER_SetSecStructEnergies( 'ssse_fa', 'fa', natbias, case ),
+    textwrap.dedent("""\
+        <Hybridize name="hybridize" stage1_scorefxn="stage1" stage2_scorefxn="stage2" fa_scorefxn="fa"
+                   batch="1" stage1_increase_cycles="1.0" stage2_increase_cycles="1.0" linmin_only="0"
+                   realign_domains="0" keep_pose_constraint="1" csts_from_frags="0" max_registry_shift="1">
+                   <Fragments three_mers="{}" nine_mers="{}"/>
+                   <Template pdb="{}" cst_file="AUTO" weight="1.000" />
+        </Hybridize>""").format(*case['metadata.fragments.files'], template)]
+
+    protocols = [textwrap.dedent("""\
+        <Add mover="add_loops_ffd" />
+        <Add mover="save_ffd" />
+        <Add mover="foldingCST_ffd" />
+        <Add mover="ssse_stage1" />
+        <Add mover="ssse_stage2" />
+        <Add mover="ssse_fa" />
+        <Add mover="hybridize" />
+        <Add filter="rmsd_ffd" />""")]
+
+    with TBcore.on_option_value('psipred', 'script', None):
+        bf = PROTOCOL_BasicFilters(case, '_ffd')
+    return ScriptPieces({'scorefxns': scorefxns, 'movers': movers, 'filters': filters,
+                         'residueselectors': residueselectors,
+                         'protocols': protocols}) + bf
 
 
 def rosettascript( data: Dict ) -> str:
@@ -222,23 +491,22 @@ def MOVER_SetSecStructEnergies( name: str, score: str, natbias: float, case: Cas
             {% if hh_pair|length > 0 %}hh_pair="{{hh_pair}}"{% endif %}
             {% if ss_pair|length > 0 %}ss_pair="{{ss_pair}}"{% endif %}
             {% if hss_triplets|length > 0 %}hss_triplets="{{hss_triplets}}"{% endif %}
-            ss_from_blueprint="0"
             {% if ss_pair|length > 0 %}natbias_ss="{{natbias}}"{% endif %}
             {% if hh_pair|length > 0 %}natbias_hh="{{natbias}}"{% endif %}
             {% if hss_triplets|length > 0 %}natbias_hs="{{natbias}}"{% endif %}
         />""")).render(data)
 
 
-def MOVER_PeptideStubMover( name: str, case: Case ) -> str:
+def MOVER_PeptideStubMover( name: str, case: Case, residue: str = 'VAL' ) -> str:
     """
     """
     return Template(textwrap.dedent("""\
         <PeptideStubMover name="{{name}}" reset="false">
         {% for item in insert %}
-        <Insert resname="GLY" repeat="1" jump="false" anchor_rsd="{{item}}" anchor_atom="C" connecting_atom="N" />
+        <Insert resname="{{residue}}" repeat="1" jump="false" anchor_rsd="{{item}}" anchor_atom="C" connecting_atom="N" />
         {% endfor %}
         </PeptideStubMover>""")).render({'insert': [i for i, ltr in enumerate(case.secondary_structure) if ltr == 'L'],
-                                         'name': name})
+                                         'name': name, 'residue': residue})
 
 
 def PROTOCOL_LayerDesign( case: Case ) -> ScriptPieces:

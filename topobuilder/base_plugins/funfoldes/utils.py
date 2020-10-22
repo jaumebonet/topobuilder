@@ -11,6 +11,7 @@ import os
 import math
 import gzip
 from pathlib import Path
+from logbook import Logger
 from typing import Union, Dict, Tuple
 import sys
 import textwrap
@@ -24,7 +25,7 @@ from topobuilder.case import Case
 import topobuilder.core as TBcore
 import topobuilder.utils as TButil
 from topobuilder.utils import build_pdb_object
-from topobuilder import plugin_source
+from topobuilder.workflow import TBplugins
 
 
 def folder_structure( case: Case ) -> Dict:
@@ -49,24 +50,26 @@ def folder_structure( case: Case ) -> Dict:
             }
 
 
-def build_template_sketch( case: Case, pdb_file: Union[Path, str] ):
+def build_template_sketch( log: Logger, case: Case, pdb_file: Union[Path, str] ):
     """Generate the PDB file used as template to fold.
     """
     # 1.1 Make sure the loop_length are specified.
     loop_lengths = case['metadata.loop_lengths']
-    if TBcore.get_option('system', 'verbose'):
-        looplist = ', '.join([str(x) for x in loop_lengths])
-        sys.stdout.write('Gathering a total of {} loops of length: {}\n'.format(len(loop_lengths), looplist))
-        sys.stdout.write('To apply over {} secondary structures: {}\n'.format(len(case), case.connectivities_str[0]))
+    looplist = ', '.join([str(x) for x in loop_lengths])
+    log.info(f'Gathering a total of {len(loop_lengths)} loops of length: {looplist}\n')
+    log.info(f'To apply over {len(case)} secondary structures: {case.connectivities_str[0]}\n')
 
     # Get the structure.
-    case = plugin_source.load_plugin('builder').case_apply(case, connectivity=True, pick_aa='V')
+    node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, pick_aa='V', tag=0)
+    case = Case(node.single_execute(case.data))
+
     sse_list = case.ordered_structures
-    pdb, _ = build_pdb_object(sse_list, loop_lengths)
+    pdb, _ = build_pdb_object(log, sse_list, loop_lengths)
     pdb.write(str(pdb_file), format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))
 
 
-def make_scripts( case: Case,
+def make_scripts( log: Logger,
+                  case: Case,
                   wpaths: Dict,
                   data: Dict,
                   natbias: float = 2.5,
@@ -110,12 +113,10 @@ def make_scripts( case: Case,
         if ifold is None or idsgn is None:
             TButil.exit()
 
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('Writing the folding RosettaScript file: {}\n'.format(wpaths['foldRS']))
+    log.info(f'Writing the folding RosettaScript file: {wpaths["foldRS"]}\n')
     with wpaths['foldRS'].open('w') as fd:
         fd.write(fld)
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('Writing the design RosettaScript file: {}\n'.format(wpaths['designRS']))
+    log.info(f'Writing the design RosettaScript file: {wpaths["designRS"]}\n')
     with wpaths['designRS'].open('w') as fd:
         fd.write(dsg)
 
@@ -148,12 +149,12 @@ def commands( case: Case, nstruct: int, data: Dict, wpaths: Dict ) -> Dict:
     return data
 
 
-def execute(data: Dict, wpaths: Dict) -> Dict:
+def execute( log: Logger, data: Dict, wpaths: Dict ) -> Dict:
     """Run Rosetta.
     """
     if TBcore.get_option('slurm', 'use'):
         slurm_file = wpaths['main'].joinpath('submit_funfoldes.sh')
-        TButil.plugin_filemaker('Submission file at {}'.format(slurm_file))
+        TButil.plugin_filemaker(f'Submission file at {slurm_file}')
         with slurm_file.open('w') as fd:
             fd.write(TButil.slurm_header() + '\n' )
             for k in ['folding', 'design']:
@@ -161,17 +162,16 @@ def execute(data: Dict, wpaths: Dict) -> Dict:
                 cmd.extend(data['cmd'][k])
                 fd.write(' '.join([str(x) for x in cmd]) + '\n')
 
-        if TBcore.get_option('system', 'verbose'):
-            sys.stdout.write('Submiting jobs to SLURM... this might take a while\n')
+        log.info('Submiting jobs to SLURM... this might take a while\n')
         TButil.submit_slurm(slurm_file)
     else:
         for k in ['folding', 'design']:
-            TButil.plugin_bash(data['cmd'][k])
+            log.notice(f'EXECTUE: {" ".join([str(x) for x in data["cmd"][k]])}')
             run([str(x) for x in data['cmd'][k]], stdout=DEVNULL)
     return data
 
 
-def update_data( data: Dict, wpaths: Dict ) -> Dict:
+def update_data( log: Logger, data: Dict, wpaths: Dict ) -> Dict:
     """Update data to link final files.
     """
     data['silent_files']['folding'] = list(wpaths['outdir'].glob('*_funfol.silent'))
@@ -179,8 +179,7 @@ def update_data( data: Dict, wpaths: Dict ) -> Dict:
     data['minisilent']['folding'] = wpaths['main'].joinpath('output_funfol.minisilent.gz')
     data['minisilent']['design'] = wpaths['main'].joinpath('output_des.minisilent.gz')
     for k in data['minisilent']:
-        if TBcore.get_option('system', 'verbose'):
-            sys.stdout.write('Generating minisilent file at {}\n'.format(data['minisilent'][k]))
+        log.info(f'Generating minisilent file at {data["minisilent"][k]}\n')
         fd = gzip.open( data['minisilent'][k], "wb" )
         for line, _, _, _ in open_rosetta_file([str(x) for x in data['silent_files'][k]], True, check_symmetry=False ):
             fd.write(line.encode('utf-8'))

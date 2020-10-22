@@ -42,7 +42,7 @@ class fragment_maker( Node ):
     :raises:
         :NodeDataError: On **check**. If the required fields to be executed are not there.
         :NodeDataError: On **execution**. If the :class:`.Case` contains anything other than one defined connectivity.
-        :NodeMissingError: On **exection**. If the :class:`.Case` is missing required fields.
+        :NodeMissingError: On **exection**. If required variable inputs are not there.
     """
     REQUIRED_FIELDS = ('metadata.loop_fragments', 'metadata.loop_lengths')
     RETURNED_FIELDS = ('metadata.fragments')
