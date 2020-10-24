@@ -41,29 +41,24 @@ class statistic( Node ):
         Depends on the ``statistic.trrosetta_env`` configuration option.
 
     .. caution::
-        In order to execute this :class:`.Node`, we highly recommend to install `trRosetta`_
-        with all dependencies. The external conda environment can be specified in the
-        ``statistic.trrosetta_env`` configuration option.
+        In order to execute this :class:`.Node`, we highly recommend to install `trRosetta`_ with all dependencies.
+        The external conda environment can be specified in the ``statistic.trrosetta_env`` configuration option.
 
     .. admonition:: To Developers
 
         Due to its use in multiple :class:`.Node`, functions to deal with this :class:`.Node` are mostly located
-        in the respective module file.
+        in the respective module file and external scripts are locate in this :class:`.Node` directory.
 
     :param loop_range: Expected loop length is calculated from the euclidian distance between two secondary
         structures. This attribute adds a window of ``loop_range`` residues under and over the calculated
         length.
-    :param top_loops: Number of loops that are selected from the sorted matches to retrieve final loop candidates.
-    :param hairpins_2: When :data:`True`, enforce 2-residue loops on beta hairpins.
-    :param rmsd_cut: Threshold value to include loops as match candidates.
-    :param filter: List of PDB identifiers to use for the search. If nothing is provided, the full database,
-        as defined by the ``master.pds`` global option, will be used.
+    :param source: Plugin designs come from, e.g. :class:`funfoldes`.
+    :param stage: The type of design, e.g. folded or designed.
+    :param analysis: Geometric or quality assessment.
+    :param metric: Type of geometric or quality assessment.
 
     :raises:
-        :NodeDataError: On **initialization**. If the PDS database, the ABEGO or fragments cannot be found.
         :NodeDataError: On **check**. If the required fields to be executed are not there.
-        :NodeDataError: On **execution**. If the :class:`.Case` contains anything other than one defined connectivity.
-
     """
     REQUIRED_FIELDS = ()
     RETURNED_FIELDS = ()
