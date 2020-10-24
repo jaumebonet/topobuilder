@@ -8,4 +8,4 @@ Utility Functions
 Structure
 ---------
 
-.. autofunction:: reverse_motif
+.. autofunction:: topobuilder.utils.reverse_motif

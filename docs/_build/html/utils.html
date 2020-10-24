@@ -164,6 +164,27 @@
 <span id="utils"></span><h1>Utility Functions<a class="headerlink" href="#utility-functions" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="structure">
 <h2>Structure<a class="headerlink" href="#structure" title="Permalink to this headline">¶</a></h2>
+<dl class="py function">
+<dt id="topobuilder.utils.reverse_motif">
+<code class="sig-name descname">reverse_motif</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">log</span></em>, <em class="sig-param"><span class="n">source</span></em>, <em class="sig-param"><span class="n">selection</span></em>, <em class="sig-param"><span class="n">hotspot</span></em>, <em class="sig-param"><span class="n">shape</span></em>, <em class="sig-param"><span class="n">binder</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#topobuilder.utils.reverse_motif" title="Permalink to this definition">¶</a></dt>
+<dd><p>Process a provided motif so that it can be attached to a <a class="reference internal" href="glossary.html#term-FORM"><span class="xref std std-term">FORM</span></a>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>log</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">Logger</span></code>) – Logger from the calling <code class="xref py py-class docutils literal notranslate"><span class="pre">Node</span></code> to keep requested verbosity.</p></li>
+<li><p><strong>source</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">Path</span></code>]) – File containing the structural data.</p></li>
+<li><p><strong>selection</strong> (<code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Selection defining the motif of interest.</p></li>
+<li><p><strong>hotspot</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Single position defining the exposed side.</p></li>
+<li><p><strong>shape</strong> (<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>) – Shape of the motif.</p></li>
+<li><p><strong>binder</strong> (<code class="xref py py-data docutils literal notranslate"><span class="pre">Optional</span></code>[<a class="reference external" href="https://docs.python.org/2/library/functions.html#str" title="(in Python v2.7)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>]) – Selection defining the binder.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><code class="xref py py-class docutils literal notranslate"><span class="pre">Dict</span></code></p>
+</dd>
+</dl>
+</dd></dl>
+
 </div>
 </div>
 

@@ -60,7 +60,8 @@ def build_template_sketch( log: Logger, case: Case, pdb_file: Union[Path, str] )
 
     # Get the structure.
     node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, pick_aa='V', tag=0)
-    case = Case(node.single_execute(case.data))    sse_list = case.ordered_structures
+    case = Case(node.single_execute(case.data))
+    sse_list = case.ordered_structures
 
     pdb, _ = build_pdb_object(log, sse_list, loop_lengths)
     pdb.write(str(pdb_file), format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))

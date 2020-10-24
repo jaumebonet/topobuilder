@@ -45,7 +45,7 @@ class motif_picker( Node ):
     :param source: Path to the PDB file of interest containing the motif.
     :param selection: Range selection of the motif segments. Position **must be defined as chain and PDB identifier**,
         that means number and insertion code, if any. Thus, one motif could be selected as ``A:10-25`` when belonging
-         to chain ``A``, while multi-segment motifs are made of selections separated by ``,``.
+        to chain ``A``, while multi-segment motifs are made of selections separated by ``,``.
     :param hotspot: Selection of a single position that belongs to the exposed part of the interface. This residue is
         used as a guide to understand the motif's placement. This selection has to follow the same format as selection,
         but without a range.

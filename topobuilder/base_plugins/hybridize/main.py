@@ -29,12 +29,11 @@ __all__ = ['hybridize']
 class hybridize( Node ):
     """Run Rosettas hybridize protocol to generate designs.
 
-    If .
-
     .. caution::
         Due to the ``FastDesignMover``, this :class:`funfoldes` may take *a lot* of time. If possible, please
         use the ``slurm.use`` configuration. In case this is not possible, you may reduce the number of decoys
-        to be generated via the :param:`nstruct` parameter option.
+        to be generated via the `nstruct` parameter option.
+
 
     :param nstruct: Number of decoys to be generated (default: 2000).
     :param natbias: Score function bias towards per secondary structure types (default: 2.5).

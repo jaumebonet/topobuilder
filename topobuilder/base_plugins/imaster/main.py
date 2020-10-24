@@ -44,17 +44,17 @@ class imaster( Node ):
     starting layer. From there on, all next layers will be corrected paire-wise, e.g. the previous
     corrected layer together with the next layer.
 
-
     .. note::
         Multiple correction shemes can be set. The default correction sheme is layer tilt around the x-axis and
         layer points (shifts) along the y-axis.
 
     .. caution::
-        Depending on the size of the queried :ref:`MASTER` database, this may take **a lot of time**.
+        Depending on the size of the queried :ref:`MASTER` database, this may take *a lot of time*.
         If possible, please use the ``slurm.use`` configuration. In case this is not possible, you may
         reduce the size of the database by setting ``master.pds`` pointing to fewer structures to search over.
 
     .. admonition:: To Developers
+    
         Due to the possibilty of external :class:`.Node`, main function is located in the :mod:`.imaster` module.
 
     :param rmsd: RMSD threshold for master search (default: 5.0).

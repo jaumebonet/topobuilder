@@ -31,10 +31,15 @@ Protein Backbone
 ----------------
 
 .. autoclass:: topobuilder.base_plugins.imaster.imaster
+.. autoclass:: topobuilder.base_plugins.fragment_maker.fragment_maker
+
 
 Sequence Design
 ---------------
+.. autoclass:: topobuilder.base_plugins.funfoldes.funfoldes
+.. autoclass:: topobuilder.base_plugins.hybridize.hybridize
 
 
 Analytics
 ---------
+.. autoclass:: topobuilder.base_plugins.statistics.statistics

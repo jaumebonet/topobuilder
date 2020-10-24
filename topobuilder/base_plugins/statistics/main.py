@@ -11,7 +11,7 @@ import sys
 import glob
 import textwrap
 from pathlib import Path
-from typing import List
+from typing import List, Dict
 from subprocess import run
 from inspect import getmembers, isfunction
 
@@ -27,10 +27,10 @@ from .utils import pdb2fasta, pdb2a3m
 from . import orders
 
 
-__all__ = ['statistic']
+__all__ = ['statistics']
 
 
-class statistic( Node ):
+class statistics( Node ):
     """Various statistics on the sequence and structure level are computed depending on available scripts.
 
     .. note::
@@ -41,7 +41,7 @@ class statistic( Node ):
         Depends on the ``statistic.trrosetta_env`` configuration option.
 
     .. caution::
-        In order to execute this :class:`.Node`, we highly recommend to install `trRosetta`_ with all dependencies.
+        In order to execute this :class:`.Node`, we highly recommend to install `trRosetta` with all dependencies.
         The external conda environment can be specified in the ``statistic.trrosetta_env`` configuration option.
 
     .. admonition:: To Developers
@@ -70,7 +70,7 @@ class statistic( Node ):
                         analysis: str,
                         metric: str,
                         **kwargs ) -> str:
-        super(statistic, self).__init__(tag)
+        super(statistics, self).__init__(tag)
 
         self.source = source
         self.stage = stage
@@ -250,7 +250,7 @@ class statistic( Node ):
                     base = a3mfile.replace('.a3m', '')
                     slurmarray = a3mfile.split('/')[-2]
                     modelnumber = a3mfile.split('_')[-1].replace('.a3m', '')
-                    cmd.extend([f'\npython {TBcore.get_option("trrosetta", "repo")}network/predict_many.py -m {TBcore.get_option("trrosetta", "weights")}'),
+                    cmd.extend([f'\npython {TBcore.get_option("trrosetta", "repo")}network/predict_many.py -m {TBcore.get_option("trrosetta", "weights")}',
                                 str(thisfolder) + '/' + ' ' + str(thisfolder) + '/'])
                     cmd.extend(['\npython', f'{TBcore.get_option("trrosetta", "repo")}trRosetta_modelling/trRosetta.py {base}.npz {base}.a3m {base}_tr001.1.pdb'])
                     if TBcore.get_option('tmalign', 'script'):

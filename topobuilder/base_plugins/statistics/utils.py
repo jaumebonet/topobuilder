@@ -70,3 +70,47 @@ def count_single_master_matches( pdbfile: Path, folder: Path ) -> pd.DataFrame:
 
 
     data = submit_searches(masters, stepfolder, current_case_file, '.'.join([x['id'] for x in sses]))
+
+
+def pdb2a3m(infile, outfile):
+    """
+    Creates a m3a file from a pdb file.
+    """
+    letters = {'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLU':'E','GLN':'Q','GLY':'G','HIS':'H',
+               'ILE':'I','LEU':'L','LYS':'K','MET':'M','PHE':'F','PRO':'P','SER':'S','THR':'T','TRP':'W',
+               'TYR':'Y','VAL':'V'}
+
+    with open(infile, "r") as infl:
+        with open(outfile, "w") as otfl:
+            prev = '-1'
+            for line in infl:
+                toks = line.split()
+                if len(toks)<1: continue
+                if toks[0] != 'ATOM': continue
+                if toks[2] == 'CA':
+                    otfl.write('%c' % letters[toks[3]])
+
+            otfl.write('\n')
+
+
+def pdb2fasta(infile, outfile):
+    """
+    Creates a fasta file from a pdb file.
+    """
+    letters = {'ALA':'A','ARG':'R','ASN':'N','ASP':'D','CYS':'C','GLU':'E','GLN':'Q','GLY':'G','HIS':'H',
+               'ILE':'I','LEU':'L','LYS':'K','MET':'M','PHE':'F','PRO':'P','SER':'S','THR':'T','TRP':'W',
+               'TYR':'Y','VAL':'V'}
+
+    with open(infile, "r") as infl:
+        base = os.path.basename(infile).replace('.pdb', '')
+        with open(outfile, "w") as otfl:
+            prev = '-1'
+            otfl.write(f'> {base}\n')
+            for line in infl:
+                toks = line.split()
+                if len(toks)<1: continue
+                if toks[0] != 'ATOM': continue
+                if toks[2] == 'CA':
+                    otfl.write('%c' % letters[toks[3]])
+
+            otfl.write('\n')
