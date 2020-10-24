@@ -103,7 +103,10 @@ def get_loop_length( log: Logger, sse1: Frame3D, sse2: Frame3D, loop_step: int, 
     return max(distance), min(distance)
 
 
-def pdb_geometry_from_rules( pdb_file: Union[Path, str, Frame3D], rules: List[Tuple] ) -> pd.DataFrame:
+def pdb_geometry_from_rules( pdb_file: Union[Path, str, Frame3D],
+                             rules: List[Tuple],
+                             log: Optional[Logger]
+                            ) -> pd.DataFrame:
     """
     """
     if isinstance(pdb_file, (Path, str)):
@@ -115,13 +118,17 @@ def pdb_geometry_from_rules( pdb_file: Union[Path, str, Frame3D], rules: List[Tu
         pdb3d = pdb_file['AtomTask:PROTEINBACKBONE']
     else:
         raise ValueError('Unexpected type for pdb_file.')
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('PDB:Analyzing geometry of {}\n'.format(pdb3d.id))
 
-    if TBcore.get_option('system', 'debug'):
-        sys.stdout.write('PDB:Available secondary structures {}\n'.format(','.join([x[0] for x in rules])))
-        sys.stdout.write('PDB:With ranges {}\n'.format(','.join(['{}-{}'.format(*x[1]) for x in rules])))
-        sys.stdout.write('PDB:With flip policy {}\n'.format(','.join([str(x[2]) for x in rules])))
+    if log:
+        log.info(f'PDB:Analyzing geometry of {pdb3d.id}\n')
+        log.debug(f'PDB:Available secondary structures {",".join([x[0] for x in rules])}\n')
+        log.debug(f'PDB:With ranges {",".join(["{}-{}".format(*x[1]) for x in rules])}\n')
+        log.debug(f'PDB:With flip policy {",".join([str(x[2]) for x in rules])}\n')
+    else:
+        sys.stdout.write(f'PDB:Analyzing geometry of {pdb3d.id}\n')
+        sys.stdout.write(f'PDB:Available secondary structures {",".join([x[0] for x in rules])}\n')
+        sys.stdout.write(f'PDB:With ranges {",".join(["{}-{}".format(*x[1]) for x in rules])}\n')
+        sys.stdout.write(f'PDB:With flip policy {",".join([str(x[2]) for x in rules])}\n')
 
     pieces = make_pieces(pdb3d, rules)
     pieces = make_vectors(pieces, rules)

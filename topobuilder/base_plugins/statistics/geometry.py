@@ -29,6 +29,7 @@ def options():
     parser.add_argument('-case', dest='case', action='store', required=True)
     parser.add_argument('-indir', dest='indir', action='store', required=True)
     parser.add_argument('-out', dest='out', action='store', required=True)
+    parser.add_argument('-logger', dest='logger', action='store', required=False, default=None)
 
     return parser.parse_args()
 
@@ -57,7 +58,7 @@ def main( options ):
     rules = list(zip(sse, ranges, flip))
 
     for pdbf in Path(options.indir).glob('*pdb'):
-        data.append(TButil.pdb_geometry_from_rules(pdbf, rules))
+        data.append(TButil.pdb_geometry_from_rules(pdbf, rules, options.logger))
         sys.stdout.flush()
 
     df = pd.concat(data)

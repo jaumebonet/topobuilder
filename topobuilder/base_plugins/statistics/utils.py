@@ -44,7 +44,7 @@ def make_directed_sketch( log: Logger, case: Case, folder: Path ) -> Path:
 
     pdbfile = folder.joinpath('directed_sketch.pdb')
     structure, _ = TButil.build_pdb_object(case.apply_topologies()[0].ordered_structures, 3)
-    log.notice('New File: Writing structure {pdbfile}')
+    log.notice(f'New File: Writing structure {pdbfile}')
     structure.write(output_file=str(pdbfile), format='pdb', clean=True, force=True)
     return pdbfile
 
