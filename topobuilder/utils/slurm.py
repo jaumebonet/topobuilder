@@ -33,7 +33,7 @@ def submit_slurm( log: Logger, slurm_file: Union[Path, str],
     """
     """
     slurm_control_file = (Path(tempfile.mkdtemp('slurm_control'))
-                          .joinpath('slurm_control.{}.sh'.format(os.getpid())))
+                          .joinpath(f'slurm_control.{os.getpid()}.sh'))
     condition_file = control_slurm_file(log, slurm_control_file, condition_file)
 
     main_id = submit_nowait_slurm(log, slurm_file)

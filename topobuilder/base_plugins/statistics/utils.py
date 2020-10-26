@@ -49,12 +49,12 @@ def make_directed_sketch( log: Logger, case: Case, folder: Path ) -> Path:
     return pdbfile
 
 
-def count_single_master_matches( pdbfile: Path, folder: Path ) -> pd.DataFrame:
+def count_single_master_matches( log: Logger, pdbfile: Path, folder: Path ) -> pd.DataFrame:
     """
     """
 
     createpds = TButil.createPDS(pdbfile)
-    TButil.plugin_bash(createpds)
+    log.notice(f'EXECUTE: {createpds}')
     run(createpds, stdout=DEVNULL)
     masters = TButil.master_best_each(pdbfile.with_suffix('.pds'), folder.joinpath('_master'), 5)
 

@@ -54,7 +54,7 @@ class imaster( Node ):
         reduce the size of the database by setting ``master.pds`` pointing to fewer structures to search over.
 
     .. admonition:: To Developers
-    
+
         Due to the possibilty of external :class:`.Node`, main function is located in the :mod:`.imaster` module.
 
     :param rmsd: RMSD threshold for master search (default: 5.0).
@@ -165,7 +165,7 @@ class imaster( Node ):
             rules = list(zip([sse['id'] for sse in CKase.ordered_structures],
                              list(zip(cstrs, cends)),
                              list(next(flip) for _ in range(len(CKase.ordered_structures)))))
-            extras = TButil.pdb_geometry_from_rules(query, rules)
+            extras = TButil.pdb_geometry_from_rules(query, rules, self.log)
 
             # MASTER search
             createpds = TButil.createPDS(query)

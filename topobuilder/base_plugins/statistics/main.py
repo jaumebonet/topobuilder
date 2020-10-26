@@ -140,12 +140,12 @@ class statistics( Node ):
         return case
 
 
-    def funfoldes2pdb( self, case: Case, wfolder: Path, stage: str ) -> List:
+    def funfoldes2pdb( self, case: Case, wfolder: Path ) -> List:
         """
         """
-        if stage == 'folding':
+        if self.stage == 'folding':
             silent_files = case['metadata.funfoldes.silent_files.folding']
-        elif stage == 'design':
+        elif self.stage == 'design':
             silent_files = case['metadata.funfoldes.silent_files.design']
         if silent_files is None:
             raise NodeMissingError('There is no output data from the funfoldes plugin.')
@@ -162,26 +162,26 @@ class statistics( Node ):
         else:
             indir = str(wfolder.joinpath('${SLURM_ARRAY_TASK_ID}'))
             cmd = ['srun', extract_pdb, '-in:file:silent']
-            if stage == 'folding':
+            if self.stage == 'folding':
                 cmd.append(os.path.commonprefix([str(x) for x in silent_files]) + '${SLURM_ARRAY_TASK_ID}_funfol.silent')
-            elif stage == 'design':
+            elif self.stage == 'design':
                 cmd.append(os.path.commonprefix([str(x) for x in silent_files]) + '${SLURM_ARRAY_TASK_ID}_des.silent')
             cmd.extend(['-out:prefix', str(indir) + '/'])
         return [['mkdir', '-p', indir] if TBcore.get_option('slurm', 'use') else '', cmd]
 
 
-    def hybridize2pdb( self, case: Case, wfolder: Path, stage: str ) -> List:
+    def hybridize2pdb( self, case: Case, wfolder: Path ) -> List:
         """
         """
-        if stage == 'assembly':
+        if self.stage == 'assembly':
             silent_files = case['metadata.hybridize.silent_files.assembly']
-        elif stage == 'design':
+        elif self.stage == 'design':
             silent_files = case['metadata.hybridize.silent_files.design']
         if silent_files is None:
             raise NodeMissingError('There is no output data from the hybridize plugin.')
 
         extract_pdb = Path(str(Path(TBcore.get_option('rosetta', 'scripts')).resolve()
-                            ).replace('rosetta_scripts.', 'extract_pdbs.'))
+                          ).replace('rosetta_scripts.', 'extract_pdbs.'))
         if not extract_pdb.is_file() or not os.access(str(extract_pdb), os.X_OK):
             raise NodeDataError(f'Cannot find executable {extract_pdb}')
 
@@ -192,9 +192,9 @@ class statistics( Node ):
         else:
             indir = str(wfolder.joinpath('${SLURM_ARRAY_TASK_ID}'))
             cmd = ['srun', extract_pdb, '-in:file:silent']
-            if stage == 'assembly':
+            if self.stage == 'assembly':
                 cmd.append(os.path.commonprefix([str(x) for x in silent_files]) + '${SLURM_ARRAY_TASK_ID}_hyb.silent')
-            elif stage == 'design':
+            elif self.stage == 'design':
                 cmd.append(os.path.commonprefix([str(x) for x in silent_files]) + '${SLURM_ARRAY_TASK_ID}_des.silent')
             cmd.extend(['-out:prefix', str(indir) + '/'])
         return [['mkdir', '-p', indir] if TBcore.get_option('slurm', 'use') else '', cmd]
@@ -214,11 +214,11 @@ class statistics( Node ):
         return cmd
 
 
-    def quality( self, case: Case, wfolder: Path, thisfolder: Path, metric: str ) -> List:
+    def quality( self, case: Case, wfolder: Path, thisfolder: Path ) -> List:
         """
         """
-        if metric == 'molprobity':
-            self.log.notice(f'Quality assessment of decoys: {metric}\n')
+        if self.metric == 'molprobity':
+            self.log.notice(f'Quality assessment of decoys: {self.metric}\n')
             cfile = case.write(wfolder.joinpath('current_case'))
             cmd = [f'{TBcore.get_option("molprobity", "script")}']
             if not TBcore.get_option('slurm', 'use'):
@@ -228,16 +228,16 @@ class statistics( Node ):
                 cmd.append(str(thisfolder.joinpath('${SLURM_ARRAY_TASK_ID}')))
                 cmd.extend(['> ' + str(wfolder.joinpath('_molprobity.${SLURM_ARRAY_TASK_ID}.txt'))])
 
-        if metric == 'proq4':
-            self.log.notice(f'Quality assessment of decoys: {metric}\n')
+        if self.metric == 'proq4':
+            self.log.notice(f'Quality assessment of decoys: {self.metric}\n')
             cmd = [f'python {Path(__file__).parent.joinpath("calc_proq4.py")}']
             if not TBcore.get_option('slurm', 'use'):
                 cmd.extend(['-p', '1', '-f', str(thisfolder), '-o', str(wfolder)])
             else:
                 cmd.extend(['-p', '${SLURM_ARRAY_TASK_ID}', '-f', str(thisfolder.joinpath('${SLURM_ARRAY_TASK_ID}')), '-o', str(wfolder)])
 
-        if metric == 'trRosetta':
-            self.log.notice(f'Quality assessment of decoys: {metric}\n')
+        if self.metric == 'trRosetta':
+            self.log.notice(f'Quality assessment of decoys: {self.metric}\n')
             cfile = case.write(wfolder.joinpath('current_case'))
             cmd = [f'source {TBcore.get_option("trrosetta", "env")}']
             if not TBcore.get_option('slurm', 'use'):
@@ -281,17 +281,17 @@ class statistics( Node ):
         return cmd
 
 
-    def execute( self, cmd: List, analysis: str, wfolder: Path, metric: str ):
+    def execute( self, cmd: List, wfolder: Path ):
         """
         """
         if not TBcore.get_option('slurm', 'use'):
             for c in list(filter(None, cmd)):
                 run(c)
         else:
-            if metric:
-                slurm_file = wfolder.joinpath(f'submit_analytics_{analysis}_{metric}.sh')
+            if self.metric:
+                slurm_file = wfolder.joinpath(f'submit_analytics_{self.analysis}_{self.metric}.sh')
             else:
-                slurm_file = wfolder.joinpath(f'submit_analytics_{analysis}.sh')
+                slurm_file = wfolder.joinpath(f'submit_analytics_{self.analysis}.sh')
             with slurm_file.open('w') as fd:
                 fd.write(TButil.slurm_header() + '\n')
                 fd.write(TButil.slurm_pyenv() + '\n')
@@ -300,13 +300,13 @@ class statistics( Node ):
             TButil.submit_slurm(slurm_file)
 
 
-    def postprocess( self, analysis: str, wfolder: Path ):
+    def postprocess( self, wfolder: Path ):
         """
         """
-        if analysis == 'geometry':
+        if self.analysis == 'geometry':
             df = pd.concat([pd.read_csv(x) for x in Path(wfolder).glob('_geometry.*.csv')])
             df.to_csv(wfolder.joinpath('geometry.csv'), index=False)
-        if analysis == 'quality':
+        if self.analysis == 'quality':
             # MolProbity
             if os.path.exists(wfolder.joinpath('_molprobity.1.txt')):
                 _getter_ = ['description', 'MolProbityScore', 'Mol_pct_rank', 'clashscore',
