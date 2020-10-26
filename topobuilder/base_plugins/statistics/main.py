@@ -11,7 +11,7 @@ import sys
 import glob
 import textwrap
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 from subprocess import run
 from inspect import getmembers, isfunction
 
@@ -68,7 +68,7 @@ class statistics( Node ):
                         source: str,
                         stage: str,
                         analysis: str,
-                        metric: str,
+                        metric: Optional[str] = None,
                         **kwargs ) -> str:
         super(statistics, self).__init__(tag)
 
@@ -94,7 +94,7 @@ class statistics( Node ):
         kase = Case(data)
 
         # Generate the folder tree for a single connectivity.
-        wfolder = case.connectivities_paths[0].joinpath(f'statistic/{source}_{stage}/')
+        wfolder = case.connectivities_paths[0].joinpath(f'statistic/{self.source}_{self.stage}/')
         wfolder.mkdir(parents=True, exist_ok=True)
         # Generate internal folder
         thisfolder = wfolder.joinpath('_pdb_files')
@@ -106,33 +106,33 @@ class statistics( Node ):
         # Get data by source
         if len(os.listdir(thisfolder)) == 0:
             if source == 'funfoldes':
-                commands.extend(funfoldes2pdb(case, thisfolder, stage))
+                commands.extend(funfoldes2pdb(case, thisfolder, self.stage))
             if source == 'hybridize':
-                commands.extend(hybridize2pdb(case, thisfolder, stage))
+                commands.extend(hybridize2pdb(case, thisfolder, self.stage))
 
         # Load analysis commands
-        if analysis == 'geometry':
+        if self.analysis == 'geometry':
             if not os.path.exists(str(wfolder.joinpath('_geometry.1.csv'))):
                 commands.append(geometry(case, wfolder, thisfolder))
 
-        if analysis == 'quality':
-            if not ( os.path.exists(str(wfolder.joinpath(f'_{metric}.1.csv'))) or
-                     os.path.exists(str(wfolder.joinpath(f'_{metric}.1.txt'))) ):
-                commands.append(quality(case, wfolder, thisfolder, metric))
+        if self.analysis == 'quality':
+            if not (os.path.exists(str(wfolder.joinpath(f'_{self.metric}.1.csv'))) or
+                    os.path.exists(str(wfolder.joinpath(f'_{self.metric}.1.txt'))) ):
+                commands.append(quality(case, wfolder, thisfolder, self.metric))
 
         # Execute
         if commands != []:
-            execute(commands, analysis, wfolder, metric)
+            execute(commands, self.analysis, wfolder, self.metric)
 
         # Postprocess
-        postprocess(analysis, wfolder)
+        postprocess(self.analysis, wfolder)
 
-        if analysis == 'geometry':
+        if self.analysis == 'geometry':
             case['metadata'].setdefault('statistic',
                                         {}).setdefault('geometry',
                                                        str(thisfolder.joinpath('${SLURM_ARRAY_TASK_ID}')))
 
-        if analysis == 'quality':
+        if self.analysis == 'quality':
             case['metadata'].setdefault('statistic',
                                         {}).setdefault('quality',
                                                        str(thisfolder.joinpath('${SLURM_ARRAY_TASK_ID}')))

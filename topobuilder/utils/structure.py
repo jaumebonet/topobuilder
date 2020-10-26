@@ -105,7 +105,7 @@ def get_loop_length( log: Logger, sse1: Frame3D, sse2: Frame3D, loop_step: int, 
 
 def pdb_geometry_from_rules( pdb_file: Union[Path, str, Frame3D],
                              rules: List[Tuple],
-                             log: Optional[Logger]
+                             log: Optional[Logger] = None
                             ) -> pd.DataFrame:
     """
     """

@@ -24,7 +24,8 @@ from logbook import Logger
 import topobuilder.core as TBcore
 
 
-__all__ = ['slurm_header', 'slurm_pyenv', 'submit_slurm', 'submit_nowait_slurm']
+__all__ = ['slurm_header', 'slurm_pyenv', 'submit_slurm', 'submit_nowait_slurm',
+           'slurm_exec', 'bash_exec_header']
 
 
 def submit_slurm( log: Logger, slurm_file: Union[Path, str],
@@ -136,3 +137,15 @@ def slurm_pyenv() -> str:
         return '\n'
     else:
         return '\n'.join(['source {}'.format(pypath), "export PYTHONPATH=''"]) + '\n'
+
+
+def slurm_exec() -> str:
+    """
+    """
+    return '\n' + 'bash exec.sh ${SLURM_ARRAY_TASK_ID}' + '\n'
+
+
+def bash_exec_header() -> str:
+    """
+    """
+    return '#!/bin/bash\n\nSLURM_ARRAY_TASK_ID=$1\n\n'

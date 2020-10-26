@@ -154,7 +154,7 @@ def execute( log: Logger, data: Dict, wpaths: Dict ) -> Dict:
     """
     if TBcore.get_option('slurm', 'use'):
         slurm_file = wpaths['main'].joinpath('submit_funfoldes.sh')
-        TButil.plugin_filemaker(f'Submission file at {slurm_file}')
+        log.notice(f'Submission file at {slurm_file}')
         with slurm_file.open('w') as fd:
             fd.write(TButil.slurm_header() + '\n' )
             for k in ['folding', 'design']:
@@ -163,7 +163,7 @@ def execute( log: Logger, data: Dict, wpaths: Dict ) -> Dict:
                 fd.write(' '.join([str(x) for x in cmd]) + '\n')
 
         log.info('Submiting jobs to SLURM... this might take a while\n')
-        TButil.submit_slurm(slurm_file)
+        TButil.submit_slurm(log, slurm_file)
     else:
         for k in ['folding', 'design']:
             log.notice(f'EXECTUE: {" ".join([str(x) for x in data["cmd"][k]])}')
