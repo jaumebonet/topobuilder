@@ -64,9 +64,11 @@ def read_tmalign(folder):
           # thus we save chain 1 under name2 and viceversa
           if line.startswith('Name of Chain_1'):
              name2 = [s.strip() for s in line.split() if s.endswith('.pdb')][0]
+             #name2 = [s.strip() for s in line.split()][-1]
              name2 = os.path.basename(name2).replace('.pdb', '')
           if line.startswith('Name of Chain_2'):
              name1 = [s.strip() for s in line.split() if s.endswith('.pdb')][0]
+             #name1 = [s.strip() for s in line.split()][-1]
              name1 = os.path.basename(name1).replace('.pdb', '')
           if line.startswith('Length of Chain_1'):
              l2 = int(line.split()[-2].strip())

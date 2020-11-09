@@ -16,13 +16,13 @@ from topobuilder.core import core
 core.open = True  # Open config to add more options.
 with core.ifndef():
     # For plugins Analytics
-    core.register_option('statistic', 'molprobity',  None, 'path_in',
+    core.register_option('statistics', 'molprobity',  None, 'path_in',
                          'Full path to the MolProbity oneline-analysis executable. If present adds it to statistics.')
-    core.register_option('statistic', 'tmalign',  None, 'path_in', 'Full path to TMalign executable.')
-    core.register_option('statistic', 'trrosetta_repo', None, 'path_in',
+    core.register_option('statistics', 'tmalign',  None, 'path_in', 'Full path to TMalign executable.')
+    core.register_option('statistics', 'trrosetta_repo', None, 'path_in',
                          'Full path to the trRosetta folder. If present adds it to statistics.')
-    core.register_option('statistic', 'trrosetta_wts', None, 'path_in', 'Full path to the trRosetta pretrained weights.')
-    core.register_option('statistic', 'trrosetta_env', 'env', None, 'path_in', 'Full path to conda environment to use for trRosetta.')
+    core.register_option('statistics', 'trrosetta_wts', None, 'path_in', 'Full path to the trRosetta pretrained weights.')
+    core.register_option('statistics', 'trrosetta_env', None, 'path_in', 'Full path to conda environment to use for trRosetta.')
 
     # There are different levels of configuration files that can be picked.
     # If any configuration file is set up, the priority goes as follows:

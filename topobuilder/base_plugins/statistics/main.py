@@ -21,6 +21,7 @@ import pandas as pd
 # This Library
 from topobuilder.workflow import Node, NodeDataError, NodeMissingError
 from topobuilder.case import Case
+from .core import core
 import topobuilder.core as TBcore
 import topobuilder.utils as TButil
 from .utils import pdb2fasta, pdb2a3m
@@ -79,19 +80,22 @@ class statistics( Node ):
 
 
     def single_check( self, dummy: Dict ) -> Dict:
-        kase = Case(dummy)
+        case = Case(dummy)
 
         # Check what it needs
         for itag in self.REQUIRED_FIELDS:
-            if kase[itag] is None:
+            if case[itag] is None:
                 raise NodeDataError(f'Field "{itag}" is required')
 
         # Include what keywords it adds (in this instance, nothing)
-        # Nothing here
-        return kase.data
+        if self.analysis == 'geometry':
+            case['metadata'].setdefault('statistic', {}).setdefault('geometry', '')
+        if self.analysis == 'quality':
+            case['metadata'].setdefault('statistic', {}).setdefault('quality', '')
+        return case.data
 
     def single_execute( self, data: Dict ) -> Dict:
-        kase = Case(data)
+        case = Case(data)
 
         # Generate the folder tree for a single connectivity.
         wfolder = case.connectivities_paths[0].joinpath(f'statistic/{self.source}_{self.stage}/')
@@ -105,27 +109,24 @@ class statistics( Node ):
 
         # Get data by source
         if len(os.listdir(thisfolder)) == 0:
-            if source == 'funfoldes':
-                commands.extend(funfoldes2pdb(case, thisfolder, self.stage))
-            if source == 'hybridize':
-                commands.extend(hybridize2pdb(case, thisfolder, self.stage))
+                commands.extend(self.funfoldes2pdb(case, thisfolder))
 
         # Load analysis commands
         if self.analysis == 'geometry':
             if not os.path.exists(str(wfolder.joinpath('_geometry.1.csv'))):
-                commands.append(geometry(case, wfolder, thisfolder))
+                commands.append(self.geometry(case, wfolder, thisfolder))
 
         if self.analysis == 'quality':
             if not (os.path.exists(str(wfolder.joinpath(f'_{self.metric}.1.csv'))) or
                     os.path.exists(str(wfolder.joinpath(f'_{self.metric}.1.txt'))) ):
-                commands.append(quality(case, wfolder, thisfolder, self.metric))
+                commands.append(self.quality(case, wfolder, thisfolder))
 
         # Execute
         if commands != []:
-            execute(commands, self.analysis, wfolder, self.metric)
+            self.execute_commands(commands, wfolder)
 
         # Postprocess
-        postprocess(self.analysis, wfolder)
+        self.postprocess(wfolder)
 
         if self.analysis == 'geometry':
             case['metadata'].setdefault('statistic',
@@ -218,9 +219,9 @@ class statistics( Node ):
         """
         """
         if self.metric == 'molprobity':
-            self.log.notice(f'Quality assessment of decoys: {self.metric}\n')
+            self.log.notice(f'Quality assessment of decoys: {self.metric}')
             cfile = case.write(wfolder.joinpath('current_case'))
-            cmd = [f'{TBcore.get_option("molprobity", "script")}']
+            cmd = [f'{core.get_option("statistics", "molprobity")}']
             if not TBcore.get_option('slurm', 'use'):
                 cmd.append(str(thisfolder) + '/')
                 cmd.extend(['> ' + str(wfolder.joinpath('_molprobity.1.txt'))])
@@ -229,7 +230,7 @@ class statistics( Node ):
                 cmd.extend(['> ' + str(wfolder.joinpath('_molprobity.${SLURM_ARRAY_TASK_ID}.txt'))])
 
         if self.metric == 'proq4':
-            self.log.notice(f'Quality assessment of decoys: {self.metric}\n')
+            self.log.notice(f'Quality assessment of decoys: {self.metric}')
             cmd = [f'python {Path(__file__).parent.joinpath("calc_proq4.py")}']
             if not TBcore.get_option('slurm', 'use'):
                 cmd.extend(['-p', '1', '-f', str(thisfolder), '-o', str(wfolder)])
@@ -237,9 +238,9 @@ class statistics( Node ):
                 cmd.extend(['-p', '${SLURM_ARRAY_TASK_ID}', '-f', str(thisfolder.joinpath('${SLURM_ARRAY_TASK_ID}')), '-o', str(wfolder)])
 
         if self.metric == 'trRosetta':
-            self.log.notice(f'Quality assessment of decoys: {self.metric}\n')
+            self.log.notice(f'Quality assessment of decoys: {self.metric}')
             cfile = case.write(wfolder.joinpath('current_case'))
-            cmd = [f'source {TBcore.get_option("trrosetta", "env")}']
+            cmd = [f'source {core.get_option("statistics", "trrosetta_env")}']
             if not TBcore.get_option('slurm', 'use'):
                 # Predict restraints and build model for each
                 for pdbfile in glob.iglob(str(thisfolder) + '/*/*.pdb'):
@@ -250,11 +251,11 @@ class statistics( Node ):
                     base = a3mfile.replace('.a3m', '')
                     slurmarray = a3mfile.split('/')[-2]
                     modelnumber = a3mfile.split('_')[-1].replace('.a3m', '')
-                    cmd.extend([f'\npython {TBcore.get_option("trrosetta", "repo")}network/predict_many.py -m {TBcore.get_option("trrosetta", "weights")}',
+                    cmd.extend([f'\npython {core.get_option("statistics", "trrosetta_repo")}network/predict_many.py -m {core.get_option("statistics", "trrosetta_wts")}',
                                 str(thisfolder) + '/' + ' ' + str(thisfolder) + '/'])
-                    cmd.extend(['\npython', f'{TBcore.get_option("trrosetta", "repo")}trRosetta_modelling/trRosetta.py {base}.npz {base}.a3m {base}_tr001.1.pdb'])
+                    cmd.extend(['\npython', f'{core.get_option("statistics", "trrosetta_repo")}trRosetta_modelling/trRosetta.py {base}.npz {base}.a3m {base}_tr001.1.pdb'])
                     if TBcore.get_option('tmalign', 'script'):
-                        cmd.extend([f'\n{TBcore.get_option("tmalign", "script")} {base}.pdb {base}_tr001.1.pdb', '>',
+                        cmd.extend([f'\n{core.get_option("statistics", "tmalign")} {base}.pdb {base}_tr001.1.pdb', '>',
                                     f'{str(thisfolder)}/_trRosetta.{modelnumber}.1'])
                         cmd.extend(['\npython', Path(__file__).parent.joinpath('parse_tmalign.py'), '-f', f'{str(thisfolder)}/',
                                     '-o', f'{str(wfolder)}/_trRosetta.1.csv'])
@@ -269,11 +270,11 @@ class statistics( Node ):
                     slurmarray = a3mfile.split('/')[-2]
                     modelnumber = a3mfile.split('_')[-1].replace('.a3m', '')
                     cmd.extend([f'\n\nif (( ${{SLURM_ARRAY_TASK_ID}} == {slurmarray} )); then'])
-                    cmd.extend([f'\npython {TBcore.get_option("trrosetta", "repo")}network/predict_many.py -m {TBcore.get_option("trrosetta", "weights")}',
+                    cmd.extend([f'\npython {core.get_option("statistics", "trrosetta_repo")}network/predict_many.py -m {core.get_option("statistics", "trrosetta_wts")}',
                                 str(thisfolder.joinpath(slurmarray)) + ' ' + str(thisfolder.joinpath(slurmarray))])
-                    cmd.extend(['\npython', f'{TBcore.get_option("trrosetta", "repo")}trRosetta_modelling/trRosetta.py {base}.npz {base}.a3m {base}_tr001.{slurmarray}.pdb'])
-                    if TBcore.get_option('tmalign', 'script'):
-                        cmd.extend([f'\n{TBcore.get_option("tmalign", "script")} {base}.pdb {base}_tr001.{slurmarray}.pdb', '>',
+                    cmd.extend(['\npython', f'{core.get_option("statistics", "trrosetta_repo")}trRosetta_modelling/trRosetta.py {base}.npz {base}.a3m {base}_tr001.{slurmarray}.pdb'])
+                    if core.get_option('statistics', 'tmalign'):
+                        cmd.extend([f'\n{core.get_option("statistics", "tmalign")} {base}.pdb {base}_tr001.{slurmarray}.pdb', '>',
                                     f'{str(thisfolder.joinpath(slurmarray))}/_trRosetta.{modelnumber}.{slurmarray}'])
                         cmd.extend(['\npython', Path(__file__).parent.joinpath('parse_tmalign.py'), '-f', f'{str(thisfolder.joinpath(slurmarray))}/',
                                     '-o', f'{str(wfolder)}/_trRosetta.{slurmarray}.csv'])
@@ -281,7 +282,7 @@ class statistics( Node ):
         return cmd
 
 
-    def execute( self, cmd: List, wfolder: Path ):
+    def execute_commands( self, cmd: List, wfolder: Path ):
         """
         """
         if not TBcore.get_option('slurm', 'use'):
@@ -297,7 +298,7 @@ class statistics( Node ):
                 fd.write(TButil.slurm_pyenv() + '\n')
                 for c in cmd:
                     fd.write(' '.join([str(x) for x in c]) + '\n')
-            TButil.submit_slurm(slurm_file)
+            TButil.submit_slurm(self.log, slurm_file)
 
 
     def postprocess( self, wfolder: Path ):
