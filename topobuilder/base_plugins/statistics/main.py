@@ -258,11 +258,14 @@ class statistics( Node ):
                         cmd.extend([f'\n{core.get_option("statistics", "tmalign")} {base}.pdb {base}_tr001.1.pdb', '>',
                                     f'{str(thisfolder)}/_trRosetta.{modelnumber}.1'])
                         cmd.extend(['\npython', Path(__file__).parent.joinpath('parse_tmalign.py'), '-f', f'{str(thisfolder)}/',
-                                    '-o', f'{str(wfolder)}/_trRosetta.1.csv'])
+                                    '-o', f'{str(thisfolder)}/_trRosetta.1.csv'])
             else:
                 # Predict restraints
-                for pdbfile in glob.iglob(str(thisfolder) + '/*/*.pdb'):
-                    with open('exec_trRosetta_predict.sh', 'w') as f:
+                with open(f'{wfolder}/exec_trRosetta_predict.sh', 'w') as f:
+                    f.write(f'source {core.get_option("statistics", "trrosetta_env")}\n\n')
+                    f.write('SLURM_ARRAY_TASK_ID=$1\n\n')
+                    slurmarrays = []
+                    for pdbfile in glob.iglob(str(thisfolder) + '/*/*.pdb'):
                         a3mfile = pdbfile.replace('.pdb', '.a3m')
                         pdb2a3m(pdbfile, a3mfile)
                         fastafile = pdbfile.replace('.pdb', '.fasta')
@@ -270,22 +273,36 @@ class statistics( Node ):
                         base = a3mfile.replace('.a3m', '')
                         slurmarray = a3mfile.split('/')[-2]
                         modelnumber = a3mfile.split('_')[-1].replace('.a3m', '')
+                        slurmarrays.append(slurmarray)
+                    for slurmarray in list(set(slurmarrays)):
                         f.write(f'\n\nif (( ${{SLURM_ARRAY_TASK_ID}} == {slurmarray} )); then')
-                        f.write(f'\npython {core.get_option("statistics", "trrosetta_repo")}network/predict_many.py -m {core.get_option("statistics", "trrosetta_wts")}',
-                                str(thisfolder.joinpath(slurmarray)) + ' ' + str(thisfolder.joinpath(slurmarray)))
-                cmd.extend([f'\nbash exec_trRosetta_predict.sh'])
+                        f.write(f'\npython {core.get_option("statistics", "trrosetta_repo")}network/predict_many.py -m {core.get_option("statistics", "trrosetta_wts")}' + ' ' + str(thisfolder.joinpath(slurmarray)) + ' ' + str(thisfolder.joinpath(slurmarray)))
+                        f.write('\nfi')
+                cmd.extend([f'\nbash {wfolder}/exec_trRosetta_predict.sh ${{SLURM_ARRAY_TASK_ID}}'])
 
                 # Build model for each
-                for pdbfile in glob.iglob(str(thisfolder) + '/*/*.pdb'):
-                    with open('exec_trRosetta_relax.sh', 'w') as f:
-                        f.write('\npython', f'{core.get_option("statistics", "trrosetta_repo")}trRosetta_modelling/trRosetta.py {base}.npz {base}.a3m {base}_tr001.{slurmarray}.pdb')
-                        if core.get_option('statistics', 'tmalign'):
-                            f.write(f'\n{core.get_option("statistics", "tmalign")} {base}.pdb {base}_tr001.{slurmarray}.pdb', '>',
-                                    f'{str(thisfolder.joinpath(slurmarray))}/_trRosetta.{modelnumber}.{slurmarray}')
-                            f.write('\npython', Path(__file__).parent.joinpath('parse_tmalign.py'), '-f', f'{str(thisfolder.joinpath(slurmarray))}/',
-                                    '-o', f'{str(wfolder)}/_trRosetta.{slurmarray}.csv')
+                with open(f'{wfolder}/exec_trRosetta_relax.sh', 'w') as f:
+                    f.write(f'source {core.get_option("statistics", "trrosetta_env")}\n\n')
+                    f.write('SLURM_ARRAY_TASK_ID=$1\n\n')
+                    for pdbfile in glob.iglob(str(thisfolder) + '/*/*.pdb'):
+                        base = pdbfile.replace('.pdb', '')
+                        slurmarray = pdbfile.split('/')[-2]
+                        modelnumber = pdbfile.split('_')[-1].replace('.pdb', '')
+                        f.write(f'\n\nif (( ${{SLURM_ARRAY_TASK_ID}} == {slurmarray} )); then')
+                        f.write(f'\npython {core.get_option("statistics", "trrosetta_repo")}trRosetta_modelling/trRosetta.py {base}.npz {base}.a3m {base}_tr001.{slurmarray}.pdb')
+                        f.write(f'\n{core.get_option("statistics", "tmalign")} {base}.pdb {base}_tr001.{slurmarray}.pdb > {str(thisfolder.joinpath(slurmarray))}/_trRosetta.{modelnumber}.{slurmarray}')
                         f.write('\nfi')
-                cmd.extend('\nbash exec_trRosetta_relax.sh')
+                cmd.extend([f'\nbash {wfolder}/exec_trRosetta_relax.sh ${{SLURM_ARRAY_TASK_ID}}'])
+
+                # Parse TM aligns
+                with open(f'{wfolder}/exec_trRosetta_TMalign.sh', 'w') as f:
+                    f.write(f'source {core.get_option("statistics", "trrosetta_env")}\n\n')
+                    for slurmarray in list(set(slurmarrays)):
+                        if core.get_option('statistics', 'tmalign'):
+                            f.write(f'\n\nif (( ${{SLURM_ARRAY_TASK_ID}} == {slurmarray} )); then')
+                            f.write('\npython ' + str(Path(__file__).parent.joinpath('parse_tmalign.py')) + ' -f ' + f'{str(thisfolder.joinpath(slurmarray))}/' + ' -o ' + f'{str(wfolder)}/_trRosetta.{slurmarray}.csv')
+                            f.write('\nfi')
+                cmd.extend([f'\nbash {wfolder}/exec_trRosetta_TMalign.sh ${{SLURM_ARRAY_TASK_ID}}'])
 
                 # # Predict restraints and build model for each
                 # for pdbfile in glob.iglob(str(thisfolder) + '/*/*.pdb'):
@@ -294,7 +311,7 @@ class statistics( Node ):
                 #     fastafile = pdbfile.replace('.pdb', '.fasta')
                 #     pdb2fasta(pdbfile, fastafile)
                 #     base = a3mfile.replace('.a3m', '')
-                #     slurmarray = a3mfile.split('/')[-2]
+                #     slurmarray = a3{wfolder}/mfile.split('/')[-2]
                 #     modelnumber = a3mfile.split('_')[-1].replace('.a3m', '')
                 #     cmd.extend([f'\n\nif (( ${{SLURM_ARRAY_TASK_ID}} == {slurmarray} )); then'])
                 #     cmd.extend([f'\npython {core.get_option("statistics", "trrosetta_repo")}network/predict_many.py -m {core.get_option("statistics", "trrosetta_wts")}',
