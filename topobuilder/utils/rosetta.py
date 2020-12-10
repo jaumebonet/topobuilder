@@ -749,14 +749,15 @@ def PROTOCOL_BasicFilters( case: Case, suffix: str = '' ) -> ScriptPieces:
         <Layer name="core{suffix}" select_core="1" select_boundary="0" select_surface="0" use_sidechain_neighbors="1"/>
         """).format(suffix=suffix)
 
-    filters = textwrap.dedent("""\
+    filters = [textwrap.dedent("""\
     <PackStat name="pack{suffix}" confidence="0." />
     <CavityVolume name="cav_vol{suffix}" confidence="0." />
     <ScorePoseSegmentFromResidueSelectorFilter name="bbscore{suffix}" confidence="0"
     residue_selector="full_pose" scorefxn="bb_only" />
-    """).format(sse1=sse, suffix=suffix)
+    """).format(sse1=sse, suffix=suffix)]
 
-    if not case.data['metadata']['binder']:
+    #if not case.data['metadata']['binder']:
+    if not 'binder' in case.data['metadata']:
         filters.append(textwrap.dedent("""\
         <SecondaryStructure name="sse_match{suffix}" ss="{sse1}" compute_pose_secstruct_by_dssp="true" confidence="0." />
         """).format(sse1=sse, suffix=suffix))
@@ -776,7 +777,7 @@ def PROTOCOL_BasicFilters( case: Case, suffix: str = '' ) -> ScriptPieces:
         <WriteSSEMover name="sse_report{suffix}" dssp="1" write_phipsi="1" />
         """).format(suffix=suffix))
 
-    protocols = textwrap.dedent("""\
+    protocols = [textwrap.dedent("""\
     <Add mover="labelcore{suffix}"/>
     <Add mover="labelboundary{suffix}"/>
     <Add mover="labelsurface{suffix}"/>
@@ -784,9 +785,10 @@ def PROTOCOL_BasicFilters( case: Case, suffix: str = '' ) -> ScriptPieces:
     <Add mover="sse_report{suffix}"/>
     <Add filter="pack{suffix}" />
     <Add filter="cav_vol{suffix}" />
-    """).format(suffix=suffix)
+    """).format(suffix=suffix)]
 
-    if not case.data['metadata']['binder']:
+    #if not case.data['metadata']['binder']:
+    if not 'binder' in case.data['metadata']:
         protocols.append(textwrap.dedent("""\
         <Add filter="sse_match{suffix}" />
         """).format(suffix=suffix))

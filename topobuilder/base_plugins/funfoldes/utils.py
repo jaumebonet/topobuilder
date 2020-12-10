@@ -60,6 +60,7 @@ def folder_structure( case: Case ) -> Dict:
 def build_template_sketch( log: Logger, case: Case, full_file: Union[Path, str] ):
     """Generate the PDB file used as template to fold.
     """
+    bindersfile = None
     pdb_file = os.path.dirname( str(full_file) ) + f'/motif.pdb'
     columns = ['auth_comp_id', 'auth_atom_id', 'auth_asym_id', 'auth_seq_id', 'Cartn_x', 'Cartn_y', 'Cartn_z']
     # List setup for saving relevant info if necessary
@@ -73,14 +74,16 @@ def build_template_sketch( log: Logger, case: Case, full_file: Union[Path, str] 
     log.info(f'To apply over {len(case)} secondary structures: {case.connectivities_str[0]}\n')
 
     # Get the structure.
-    if not case.data['metadata']['motif_picker']: # no motif
+    #if not case.data['metadata']['motif_picker']: # no motif
+    if not 'motif_picker' in case.data['metadata']:
         node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, pick_aa='V', tag=0)
     else: # motif
         node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, motif=True, pick_aa='V', tag=0)
     case = Case(node.single_execute(case.data))
 
     # Get the binder.
-    if not case.data['metadata']['motif_picker']: # no motif
+    #if not case.data['metadata']['motif_picker']: # no motif
+    if not 'motif_picker' in case.data['metadata']:
         node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, pick_aa='V', tag=0)
     else: # motif and hotspots
         node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, motif=True, pick_aa='V', tag=0)
@@ -91,11 +94,13 @@ def build_template_sketch( log: Logger, case: Case, full_file: Union[Path, str] 
     log.notice(f'Writing structure {pdb_file}')
     pdb.write(str(pdb_file), format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))
 
-    if not case.data['metadata']['binder']:
+    #if not case.data['metadata']['binder']:
+    if not 'binder' in case.data['metadata']:
         log.notice(f'Writing structure (no binder) {full_file}')
         pdb.write(str(full_file), format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))
 
-    if case.data['metadata']['motif_picker']:
+    #if case.data['metadata']['motif_picker']:
+    if 'motif_picker' in case.data['metadata']:
         for mdata in case.data['metadata']['motif_picker']:
             motif, binder, hotspots, attach, selection, identifier = mdata['motifs']
 
@@ -114,7 +119,8 @@ def build_template_sketch( log: Logger, case: Case, full_file: Union[Path, str] 
             res_coldspots.extend(coldspots)
             m_identifiers.extend(identifier)
 
-    if case.data['metadata']['binder']: # Binder
+    #if case.data['metadata']['binder']: # Binder
+    if 'binder' in case.data['metadata']:
         #full_structure = [pdb,]
         binders = []
         for key in case.data['metadata']['binder']:
