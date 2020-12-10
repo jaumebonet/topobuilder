@@ -49,11 +49,13 @@ class funfoldes( Node ):
 
     def __init__( self, tag: int,
                   nstruct: Optional[int] = 2000,
+                  design_nstruct: Optional[int] = 10,
                   natbias: Optional[float] = 2.5,
                   layer_design: Optional[bool] = True) -> Case:
         super(funfoldes, self).__init__(tag)
 
         self.nstruct = nstruct
+        self.design_nstruct = design_nstruct
         self.natbias = natbias
         self.layer_design = layer_design
 
@@ -94,13 +96,14 @@ class funfoldes( Node ):
             raise NodeMissingError(f'Cannot find executable {data["cmd"]["folding"][0]}')
 
         # Build the structure
-        utils.build_template_sketch( self.log, case, wpaths['pdb'] )
+        binders, motif, hotspots, coldspots, identifiers, bindersfile = utils.build_template_sketch( self.log, case, wpaths['pdb'] )
 
         # Make the Folding and Design RScripts
-        data = utils.make_scripts(self.log, case, wpaths, data, self.natbias, self.layer_design)
+        data = utils.make_scripts(self.log, case, wpaths, data, self.natbias, self.layer_design,
+                                  binders, motif, hotspots, identifiers, bindersfile)
 
         # Finish command
-        data = utils.commands(case, self.nstruct, data, wpaths)
+        data = utils.commands(case, self.nstruct, self.design_nstruct, data, wpaths)
 
         # Execute
         data = utils.execute(self.log, data, wpaths)

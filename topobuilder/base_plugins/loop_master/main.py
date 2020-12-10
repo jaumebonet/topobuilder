@@ -86,7 +86,7 @@ class loop_master( Node ):
         self.hairpins_2 = hairpins_2
         self.rmsd_cut = rmsd_cut
         self.filter = filter
-        self.multiplier = 3  # applied to the top_loops selection to give the file some margin.
+        self.multiplier = 3 # applied to the top_loops selection to give the file some margin.
 
         # Force is set to True as another MASTER-dependent pluggin might
         # work with a different filter of the database.
@@ -144,6 +144,7 @@ class loop_master( Node ):
             wfolder = folders.joinpath(f'loop{i + 1:02d}')
             wfolder.mkdir(parents=True, exist_ok=True)
             outfile = wfolder.joinpath(f'loop_master.jump{i + 1:02d}.pdb')
+            outfilePDS = wfolder.joinpath(f'loop_master.jump{i + 1:02d}.pds')
             masfile = outfile.with_suffix('.master')
             checkpoint = wfolder.joinpath('checkpoint.json')
 
@@ -161,16 +162,18 @@ class loop_master( Node ):
             sse1_name, sse2_name = sse1['id'], sse2['id']
             is_hairpin = self.check_hairpin(sse1_name, sse2_name)
 
-            if not masfile.is_file():
-                # 4. Generate structures
-                sse1, sse2 = TBstructure.build_pdb_object(self.log, [sse1, sse2], 5,
-                                                          concat=False, outfile=outfile)
+            # 4. Generate structures
+            sse1, sse2 = TBstructure.build_pdb_object(self.log, [sse1, sse2], 5,
+                                                      concat=False, outfile=outfile)
 
+            if not masfile.is_file():
                 # 5. calculate expected loop length by loop_step
                 Mdis, mdis = TBstructure.get_loop_length(self.log, sse1, sse2, loop_step, self.loop_range)
 
                 # 6. Run MASTER
-                outfilePDS = outfile if outfile is not None else Path(outfile).with_suffix('.pds')
+                self.log.debug(Path(outfile))
+                #outfilePDS = outfile if outfile is not None else Path(outfile).with_suffix('.pds')
+                self.log.debug(f'FILE {outfilePDS}')
                 # -> make PDS query
                 cmd = TBMaster.createPDS(outfile, outfilePDS)
                 self.log.debug(f'EXECUTE: {" ".join(cmd)}')
@@ -178,23 +181,60 @@ class loop_master( Node ):
                 # -> run MASTER
                 cmd = TBMaster.master_fixedgap(outfilePDS, self.pdsdb, masfile, mdis, Mdis, self.rmsd_cut)
                 self.log.debug(f'EXECUTE: {" ".join(cmd)}')
-                run(cmd, stdout=DEVNULL)
+                result = run(cmd, stdout=DEVNULL)
+                self.log.debug(result)
+                self.log.debug(result.returncode)
 
-            # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
-            match_count = self.minimize_master_file(masfile)
+                if result.returncode: # no loop between that connection, e.g. a motif ranging over multiple sse with keeping the loops
+                    # 4. Generate structures
+                    self.log.debug('generate combined structure')
+                    sse = pd.concat([sse1, sse2], sort=False)
 
-            # 7. Retrieve MASTER data
-            dfloop = self.process_master_data(masfile, sse1_name, sse2_name, is_hairpin and self.hairpins_2)
-            sse1l, loopl, sse2l = lengths[i], int(dfloop['loop_length'].values[0]), lengths[i + 1]
-            total_len = sse1l + loopl + sse2l
-            end_edge = total_len + start - 1
-            edges = {'ini': int(start), 'end': int(end_edge), 'sse1': int(sse1l), 'loop': int(loopl), 'sse2': int(sse2l)}
-            self.log.debug(f'INI: {start}; END: {end_edge}; SSE1: {sse1l}; LOOP: {loopl}; SSE2: {sse2l}')
-            self.log.debug(dfloop.to_string())
+                    # 6. Run MASTER
+                    self.log.debug(Path(outfile))
+                    #outfilePDS = outfile if outfile is not None else Path(outfile).with_suffix('.pds')
+                    self.log.debug(f'FILE {outfilePDS}')
+                    # -> make PDS query
+                    cmd = TBMaster.createPDS(outfile, outfilePDS)
+                    self.log.debug(f'EXECUTE: {" ".join(cmd)}')
+                    run(cmd, stdout=DEVNULL)
+                    # -> run MASTER
+                    cmd = TBMaster.master_nogap(outfilePDS, self.pdsdb, masfile, self.rmsd_cut)
+                    self.log.debug(f'EXECUTE: {" ".join(cmd)}')
+                    run(cmd, stdout=DEVNULL)
 
-            # 8. Bring and Combine fragments from the different sources.
-            loop_data = self.make_fragment_files(dfloop, edges, masfile)
-            loop_data['match_count'] += match_count
+                    # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
+                    match_count = self.minimize_master_file(masfile)
+                    self.log.debug(f'match count here {match_count}')
+
+                    # 7. Retrieve MASTER data
+                    dfloop = self.process_master_data_no_gap(masfile, sse1_name, sse2_name)
+                    sse1l, loopl, sse2l = lengths[i], int(dfloop['loop_length'].values[0]), lengths[i + 1]
+                    total_len = sse1l + loopl + sse2l
+                    end_edge = total_len + start - 1
+                    edges = {'ini': int(start), 'end': int(end_edge), 'sse1': int(sse1l), 'loop': int(loopl), 'sse2': int(sse2l)}
+                    self.log.debug(f'INI: {start}; END: {end_edge}; SSE1: {sse1l}; LOOP: {loopl}; SSE2: {sse2l}')
+                    self.log.debug(dfloop.to_string())
+
+                    # 8. Bring and Combine fragments from the different sources.
+                    loop_data = self.make_fragment_files(dfloop, edges, masfile)
+                    loop_data['match_count'] += match_count
+
+                else:
+                    # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
+                    match_count = self.minimize_master_file(masfile)
+                    # 7. Retrieve MASTER data
+                    dfloop = self.process_master_data(masfile, sse1_name, sse2_name, is_hairpin and self.hairpins_2)
+                    sse1l, loopl, sse2l = lengths[i], int(dfloop['loop_length'].values[0]), lengths[i + 1]
+                    total_len = sse1l + loopl + sse2l
+                    end_edge = total_len + start - 1
+                    edges = {'ini': int(start), 'end': int(end_edge), 'sse1': int(sse1l), 'loop': int(loopl), 'sse2': int(sse2l)}
+                    self.log.debug(f'INI: {start}; END: {end_edge}; SSE1: {sse1l}; LOOP: {loopl}; SSE2: {sse2l}')
+                    self.log.debug(dfloop.to_string())
+
+                    # 8. Bring and Combine fragments from the different sources.
+                    loop_data = self.make_fragment_files(dfloop, edges, masfile, no_loop=True)
+                    loop_data['match_count'] += match_count
 
             # 9. Save data in the Case
             kase.data['metadata']['loop_fragments'].append(loop_data)
@@ -288,7 +328,32 @@ class loop_master( Node ):
         df.to_csv(masfile.with_suffix('.csv'), index=False)
         return df
 
-    def make_fragment_files( self, dfloop: pd.DataFrame, edges: Dict, masfile: Path ) -> Dict:
+    def process_master_data_no_gap( self, masfile: Path, name1: str, name2: str) -> pd.DataFrame:
+        """Get length data from the MASTER matches.
+        """
+        def cutter(row):
+            match = row['match']
+            # MASTER starts match count at 0!
+            return row['abego'][match[0][0]: match[0][-1] + 1], '-', 0
+
+        if masfile.with_suffix('.csv').is_file():
+            df = pd.read_csv(masfile.with_suffix('.csv'))
+            df['match'] = df['match'].apply(literal_eval)
+            return df
+
+        dfloop = parse_master_file(masfile)
+        dfloop = dfloop.merge(self.abegos, on=['pdb', 'chain']).merge(self.fragments, on=['pdb', 'chain']).dropna()
+        dfloop[['abego', 'loop', 'loop_length']] = dfloop.apply(cutter, axis=1, result_type='expand')
+        dfloop = dfloop.iloc[:self.top_loops]
+        dfloop['length_count'] = dfloop.loop_length.map(dfloop.loop_length.value_counts())
+        dfloop.drop(columns=['pds_path']).to_csv(masfile.with_suffix('.all.csv'), index=False)
+        finaldf = dfloop.sort_values('rmsd').drop_duplicates(['loop'])
+
+        df = finaldf.drop(columns=['pds_path'])
+        df.to_csv(masfile.with_suffix('.csv'), index=False)
+        return df
+
+    def make_fragment_files( self, dfloop: pd.DataFrame, edges: Dict, masfile: Path, no_loop: Optional[bool] = True ) -> Dict:
         """Combin the fragments from the different matches.
         """
         data = {'loop_length': int(dfloop.iloc[0]['loop_length']), 'abego': list(dfloop['loop'].values),
@@ -297,14 +362,24 @@ class loop_master( Node ):
         dfs3 = []
         dfs9 = []
         sample = math.ceil(200 / dfloop.shape[0])
-        for i, row in dfloop.iterrows():
-            # Remember: MASTER match starts with 0!
-            dfs3.append((parse_rosetta_fragments(str(row['3mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                         .slice_region(row['match'][0][0] + 1, row['match'][1][1] + 1).sample_top_neighbors(sample)
-                         .renumber(edges['ini']).top_limit(edges['end'])))
-            dfs9.append((parse_rosetta_fragments(str(row['9mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                         .slice_region(row['match'][0][0] + 1, row['match'][1][1] + 1).sample_top_neighbors(sample)
-                         .renumber(edges['ini']).top_limit(edges['end'])))
+        if not no_loop:
+            for i, row in dfloop.iterrows():
+                # Remember: MASTER match starts with 0!
+                dfs3.append((parse_rosetta_fragments(str(row['3mers']), source=f'{row["pdb"]}_{row["chain"]}')
+                             .slice_region(row['match'][0][0] + 1, row['match'][1][1] + 1).sample_top_neighbors(sample)
+                             .renumber(edges['ini']).top_limit(edges['end'])))
+                dfs9.append((parse_rosetta_fragments(str(row['9mers']), source=f'{row["pdb"]}_{row["chain"]}')
+                             .slice_region(row['match'][0][0] + 1, row['match'][1][1] + 1).sample_top_neighbors(sample)
+                             .renumber(edges['ini']).top_limit(edges['end'])))
+        else:
+            for i, row in dfloop.iterrows():
+                # Remember: MASTER match starts with 0!
+                dfs3.append((parse_rosetta_fragments(str(row['3mers']), source=f'{row["pdb"]}_{row["chain"]}')
+                             .slice_region(row['match'][0][0] + 1, row['match'][0][1] + 1).sample_top_neighbors(sample)
+                             .renumber(edges['ini']).top_limit(edges['end'])))
+                dfs9.append((parse_rosetta_fragments(str(row['9mers']), source=f'{row["pdb"]}_{row["chain"]}')
+                             .slice_region(row['match'][0][0] + 1, row['match'][0][1] + 1).sample_top_neighbors(sample)
+                             .renumber(edges['ini']).top_limit(edges['end'])))
 
         # Merge Fragments
         dfs3all = dfs3[0]

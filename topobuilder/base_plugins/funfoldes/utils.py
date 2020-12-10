@@ -12,13 +12,20 @@ import math
 import gzip
 from pathlib import Path
 from logbook import Logger
-from typing import Union, Dict, Tuple
+from typing import Union, Dict, Tuple, List, Optional
 import sys
 import textwrap
 from subprocess import run, DEVNULL
 
 # External Libraries
+import pandas as pd
 from rstoolbox.io import open_rosetta_file
+try:
+    from SBI.structure import PDB, Frame3D
+    import SBI.core as SBIcr
+except ImportError:
+    class Frame3D():
+        pass
 
 # This Library
 from topobuilder.case import Case
@@ -50,9 +57,15 @@ def folder_structure( case: Case ) -> Dict:
             }
 
 
-def build_template_sketch( log: Logger, case: Case, pdb_file: Union[Path, str] ):
+def build_template_sketch( log: Logger, case: Case, full_file: Union[Path, str] ):
     """Generate the PDB file used as template to fold.
     """
+    pdb_file = os.path.dirname( str(full_file) ) + f'/motif.pdb'
+    columns = ['auth_comp_id', 'auth_atom_id', 'auth_asym_id', 'auth_seq_id', 'Cartn_x', 'Cartn_y', 'Cartn_z']
+    # List setup for saving relevant info if necessary
+    #Spots = namedtuple('Spots', ['motifs', 'binders', 'hotpsots', 'coldspots', 'identifier'])
+    res_attach, res_hotspots, res_coldspots, binder_chains, m_identifiers = [], [], [], [], []
+
     # 1.1 Make sure the loop_length are specified.
     loop_lengths = case['metadata.loop_lengths']
     looplist = ', '.join([str(x) for x in loop_lengths])
@@ -60,12 +73,75 @@ def build_template_sketch( log: Logger, case: Case, pdb_file: Union[Path, str] )
     log.info(f'To apply over {len(case)} secondary structures: {case.connectivities_str[0]}\n')
 
     # Get the structure.
-    node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, pick_aa='V', tag=0)
+    if not case.data['metadata']['motif_picker']: # no motif
+        node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, pick_aa='V', tag=0)
+    else: # motif
+        node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, motif=True, pick_aa='V', tag=0)
+    case = Case(node.single_execute(case.data))
+
+    # Get the binder.
+    if not case.data['metadata']['motif_picker']: # no motif
+        node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, pick_aa='V', tag=0)
+    else: # motif and hotspots
+        node = getattr(TBplugins.source.load_plugin('builder'), 'builder', None)(connectivity=True, motif=True, pick_aa='V', tag=0)
     case = Case(node.single_execute(case.data))
 
     sse_list = case.ordered_structures
     pdb, _ = build_pdb_object(log, sse_list, loop_lengths)
+    log.notice(f'Writing structure {pdb_file}')
     pdb.write(str(pdb_file), format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))
+
+    if not case.data['metadata']['binder']:
+        log.notice(f'Writing structure (no binder) {full_file}')
+        pdb.write(str(full_file), format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))
+
+    if case.data['metadata']['motif_picker']:
+        for mdata in case.data['metadata']['motif_picker']:
+            motif, binder, hotspots, attach, selection, identifier = mdata['motifs']
+
+            attach = pdb[pdb.sse_id.isin(attach)][['auth_seq_id', 'auth_asym_id']].drop_duplicates().values
+            attach = [f'{s[0]}{s[1]}' for s in attach]
+            hotspots  = pdb[pdb.pdb_num.isin(hotspots['auth_seq_id'].drop_duplicates().values
+                            )][['auth_seq_id', 'auth_asym_id']].drop_duplicates().values
+            hotspots  = [f'{s[0]}{s[1]}' for s in hotspots]
+            coldspots = [s for s in attach if s not in hotspots]
+            log.debug(f'Adding motif of id {identifier}: {attach}')
+            log.debug(f'Current hotspots  : {hotspots}')
+            log.debug(f'Current coldspots : {coldspots}')
+
+            res_attach.extend(attach)
+            res_hotspots.extend(hotspots)
+            res_coldspots.extend(coldspots)
+            m_identifiers.extend(identifier)
+
+    if case.data['metadata']['binder']: # Binder
+        #full_structure = [pdb,]
+        binders = []
+        for key in case.data['metadata']['binder']:
+            binder = case.data['metadata']['binder'][key]
+            binders.append(binder)
+            binderfile = os.path.dirname( str(pdb_file) ) + f'/binder_{key}.pdb'
+            binder_chains.extend( binder['auth_asym_id'].drop_duplicates().tolist() )
+            #full_structure.append(binder)
+            log.debug(f'Adding binder chains: {binder_chains}')
+
+        bindersfile = os.path.dirname( str(pdb_file) ) + f'/binders.pdb'
+        log.notice(f'Writing structure {bindersfile}')
+        binders = PDB(pd.concat(binders, sort=False))
+        binders.write(bindersfile, format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))
+
+        full_structure = PDB( pd.concat([pdb[columns], binders[columns]], sort=False) )
+        log.notice(f'Writing structure {full_file}')
+        full_structure.write(str(full_file), format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))
+    #else:
+    #    pdb.write(str(pdb_file), format='pdb', clean=True, force=TBcore.get_option('system', 'overwrite'))
+
+    # Push back hotspots, motif seq num and binder chain
+    if binder_chains == []: binder_chains = None
+    if res_attach == []:    res_attach = None
+    if res_hotspots == []:  res_hotspots = None
+
+    return binder_chains, res_attach, res_hotspots, res_coldspots, m_identifiers, bindersfile
 
 
 def make_scripts( log: Logger,
@@ -73,12 +149,18 @@ def make_scripts( log: Logger,
                   wpaths: Dict,
                   data: Dict,
                   natbias: float = 2.5,
-                  layer_design: bool = True
+                  layer_design: bool = True,
+                  binder: Optional[List] = None,
+                  motif: Optional[List] = None,
+                  hotspots: Optional[List] = None,
+                  identifiers: Optional[List] = None,
+                  binderfile: Optional[str] = None,
                   ) -> Tuple[str, str]:
     """Create the folding and design scripts.
     """
-    fld = TButil.rosettascript(TButil.funfoldes(case))
-    dsg = TButil.rosettascript(TButil.constraint_design(case, natbias, layer_design))
+    fld = TButil.rosettascript(TButil.funfoldes(case, motif, binder, hotspots))
+    dsg = TButil.rosettascript(TButil.constraint_design(case, natbias, layer_design,
+                                                        motif, binder, hotspots))
 
     if TBcore.get_option('system', 'jupyter'):
         ifold = os.getenv('TB_FUNFOLDES_FOLD_FILE', None)
@@ -127,7 +209,7 @@ def make_scripts( log: Logger,
     return data
 
 
-def commands( case: Case, nstruct: int, data: Dict, wpaths: Dict ) -> Dict:
+def commands( case: Case, nstruct: int, design_nstruct: int, data: Dict, wpaths: Dict ) -> Dict:
     """Create the full commands to execute Rosetta.
     """
     out_prefix = (case.name if not TBcore.get_option('slurm', 'use') else '_'.join([case.name, '${SLURM_ARRAY_TASK_ID}'])) + '_'
@@ -143,7 +225,7 @@ def commands( case: Case, nstruct: int, data: Dict, wpaths: Dict ) -> Dict:
     data['cmd']['folding'].extend(['-in:file:s', str(wpaths['pdb']), '-out:prefix', prefix1, '-out:file:silent', flded])
     data['cmd']['design'].extend(['-in:file:silent', flded, '-out:prefix', prefix2, '-out:file:silent', dsgnd])
     data['cmd']['folding'].extend(['-nstruct', str(nstruct)])
-    data['cmd']['design'].extend(['-nstruct', str(10)])
+    data['cmd']['design'].extend(['-nstruct', str(design_nstruct)])
     data['cmd']['folding'].extend(commons)
     data['cmd']['design'].extend(commons)
     return data
@@ -166,7 +248,7 @@ def execute( log: Logger, data: Dict, wpaths: Dict ) -> Dict:
         TButil.submit_slurm(log, slurm_file)
     else:
         for k in ['folding', 'design']:
-            log.notice(f'EXECTUE: {" ".join([str(x) for x in data["cmd"][k]])}')
+            log.notice(f'EXECUTE: {" ".join([str(x) for x in data["cmd"][k]])}')
             run([str(x) for x in data['cmd'][k]], stdout=DEVNULL)
     return data
 

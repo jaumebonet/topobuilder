@@ -7,7 +7,7 @@
 # Standard Libraries
 import textwrap
 import math
-from typing import Dict, Union
+from typing import Dict, Union, Optional, List
 
 # External Libraries
 from jinja2 import Template
@@ -241,7 +241,11 @@ def constraint_minimization(  case: Case, natbias: float ) -> ScriptPieces:
                          'residueselectors': residueselectors, 'protocols': protocols}) + bf
 
 
-def constraint_design( case: Case, natbias: float, layer_design: bool = True ) -> ScriptPieces:
+def constraint_design( case: Case, natbias: float, layer_design: bool = True,
+                       motif: Optional[List] = None,
+                       binder: Optional[List] = None,
+                       hotspots: Optional[List] = None,
+                      ) -> ScriptPieces:
     """
     """
     scorefxns = [textwrap.dedent("""\
@@ -258,8 +262,90 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True ) -
         <Reweight scoretype="hbond_lr_bb" weight="2.0" />
     </ScoreFunction>
     """), ]
+    if motif and binder and hotspots: # all
+        coldspots = [s for s in motif if s not in hotspots]
+        template  = list(set([s[-1] for s in motif]))
+        residueselectors = [textwrap.dedent("""<Index name="piece_ffd" resnums="{}" />""").format(','.join(motif)),
+                            textwrap.dedent("""<Chain name="template" chains="{}" />""").format(','.join(template)),
+                            textwrap.dedent("""<Not name="binder" selector="template"/>"""),
+                            textwrap.dedent("""<Index name="hotspots" resnums="{}" />""").format(','.join(hotspots)),
+                            textwrap.dedent("""<Index name="coldspots" resnums="{}" />""").format(','.join(coldspots)),
+                            SELECTOR_SecondaryStructure('sse_cstdes', case)]
 
-    residueselectors = [SELECTOR_SecondaryStructure('sse_cstdes', case), ]
+        taskoperations = [textwrap.dedent("""\
+        <OperateOnResidueSubset name="no_repacking_hotspots" selector="hotspots" >
+            <PreventRepackingRLT/>
+        </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="no_repacking_binder" selector="binder" >
+            <PreventRepackingRLT/>
+        </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="no_C_coldspots" selector="coldspots" >
+            <DisallowIfNonnativeRLT disallow_aas="C" />
+        </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="no_CM_template" selector="template" >
+            <DisallowIfNonnativeRLT disallow_aas="CM" />
+        </OperateOnResidueSubset>
+        """)]
+        tskop = ['no_repacking_hotspots', 'no_repacking_binder', 'no_C_coldspots', 'no_CM_template']
+
+        movemapfactory = [textwrap.dedent("""\
+        <MoveMapFactory name="mmap" bb="false" chi="false" nu="false" branches="false" jumps="false" >
+            <Chi      enable="true" residue_selector="coldspots" />
+            <Backbone enable="true" residue_selector="template" />
+            <Chi      enable="true" residue_selector="template" />
+        </MoveMapFactory>
+        """)]
+    elif motif and hotspots: # no binder
+        coldspots = [s for s in attach if s not in hotspots]
+        template  = list(set([s[-1] for s in motif]))
+        residueselectors = [textwrap.dedent("""<Index name="piece_ffd" resnums="{}" />""").format(','.join(motif)),
+                            textwrap.dedent("""<Chain name="template" chains="{}" />""").format(','.join(template)),
+                            textwrap.dedent("""<Index name="hotspots" resnums="{}" />""").format(','.join(hotspots)),
+                            textwrap.dedent("""<Index name="coldspots" resnums="{}" />""").format(','.join(coldspots)),
+                            SELECTOR_SecondaryStructure('sse_cstdes', case)]
+
+        taskoperations = [textwrap.dedent("""\
+        <OperateOnResidueSubset name="no_repacking_hotspots" selector="hotspots" >
+            <PreventRepackingRLT/>
+        </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="no_C_coldspots" selector="coldspots" >
+            <DisallowIfNonnativeRLT disallow_aas="C" />
+        </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="no_CM_template" selector="template" >
+            <DisallowIfNonnativeRLT disallow_aas="CM" />
+        </OperateOnResidueSubset>
+        """)]
+        tskop = ['no_repacking_hotspots', 'no_C_coldspots', 'no_CM_template']
+
+        movemapfactory = [textwrap.dedent("""\
+        <MoveMapFactory name="mmap" bb="false" chi="false" nu="false" branches="false" jumps="false" >
+            <Chi      enable="true" residue_selector="coldspots" />
+            <Backbone enable="true" residue_selector="template" />
+            <Chi      enable="true" residue_selector="template" />
+        </MoveMapFactory>
+        """)]
+    elif motif: # no binder and no hotspots
+        template  = list(set([s[-1] for s in motif]))
+        residueselectors = [textwrap.dedent("""<Index name="piece_ffd" resnums="{}"/>""").format(','.join(motif)),
+                            textwrap.dedent("""<Chain name="template" chains="{}"/>""").format(','.join(template)),
+                            SELECTOR_SecondaryStructure('sse_cstdes', case)]
+
+        taskoperations = [textwrap.dedent("""\
+        <OperateOnResidueSubset name="no_CM_template" selector="template">
+            <DisallowIfNonnativeRLT disallow_aas="CM"/>
+        </OperateOnResidueSubset>
+        """)]
+        tskop = ['no_CM_template']
+
+        movemapfactory = [textwrap.dedent("""\
+        <MoveMapFactory name="mmap" bb="false" chi="false" nu="false" branches="false" jumps="false">
+            <Backbone enable="true" residue_selector="template"/>
+            <Chi      enable="true" residue_selector="template"/>
+        </MoveMapFactory>
+        """)]
+    else: # no motif
+        residueselectors = [SELECTOR_SecondaryStructure('sse_cstdes', case), ]
+        taskoperations   = None
 
     filters = [textwrap.dedent("""\
     <RmsdFromResidueSelectorFilter name="rmsd_cstdes" reference_selector="sse_cstdes"
@@ -274,14 +360,38 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True ) -
         </SegmentedAtomPairConstraintGenerator>
         <!--AutomaticSheetConstraintGenerator name="cst_sheet_cstdes" sd="2.0" distance="6.1" /-->
     </AddConstraints>
-    <RemoveConstraints name="rm_cstdes" constraint_generators="cst_seg_cstdes" />"""),
-    MOVER_SetSecStructEnergies( 'ssse_cstdes', 'sfxn_cstdes', natbias, case ), MOVER_SetSecStructEnergies( 'ssse_cstdes_cart', 'sfxn_cstdes_cart', natbias, case ),
-              textwrap.dedent("""\
-    <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019" task_operations="layer_design" ramp_down_constraints="false" repeats="5" dualspace="true"/>
-    """) if layer_design else textwrap.dedent("""\
-    <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019" ramp_down_constraints="false" repeats="5" dualspace="true"/>"""),
-              textwrap.dedent("""\
-    <FastRelax name="cst_cstrel" scorefxn="sfxn_cstdes_cart" repeats="5" cartesian="true"/>""")]
+    <RemoveConstraints name="rm_cstdes" constraint_generators="cst_seg_cstdes" />
+    <StructFragmentMover name="makeFrags_ffd" prefix="frags" small_frag_file="{}" large_frag_file="{}" />
+    <NubInitioLoopClosureMover name="close_loops" fragments_id="frags"
+      break_side_ramp="true" design="true" fullatom_scorefxn="sfxn_cstdes" max_trials="100"/>
+    """).format(*case['metadata.fragments.files']),
+    MOVER_SetSecStructEnergies( 'ssse_cstdes', 'sfxn_cstdes', natbias, case ),
+    MOVER_SetSecStructEnergies( 'ssse_cstdes_cart', 'sfxn_cstdes_cart', natbias, case )]
+    if not taskoperations:
+        movers.append(textwrap.dedent("""\
+        <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019"
+                task_operations="layer_design" ramp_down_constraints="false" repeats="5" dualspace="true"/>
+        <FastRelax name="cst_cstrel" scorefxn="sfxn_cstdes_cart" repeats="5" cartesian="true"/>
+        """)) if layer_design else movers.append(textwrap.dedent("""\
+        <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019"
+                ramp_down_constraints="false" repeats="5" dualspace="true"/>
+        <FastRelax name="cst_cstrel" scorefxn="sfxn_cstdes_cart" repeats="5" cartesian="true"/>"""))
+    else:
+        movers.append(textwrap.dedent("""\
+    <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019"
+          task_operations="layer_design,{}"  movemap_factory="mmap"
+          ramp_down_constraints="false" repeats="5" dualspace="true"/>
+    <FastRelax name="cst_cstrel" scorefxn="sfxn_cstdes_cart"  movemap_factory="mmap" repeats="5" cartesian="true"/>
+    """).format(','.join(tskop)) ) if layer_design else movers.append(textwrap.dedent("""\
+    <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019"
+          task_operations="{}"  movemap_factory="mmap"
+          ramp_down_constraints="false" repeats="5" dualspace="true"/>
+    <FastRelax name="cst_cstrel" scorefxn="sfxn_cstdes_cart"  movemap_factory="mmap" repeats="5" cartesian="true"/>
+          """).format(','.join(tskop)) )
+
+    if binder:
+        movers.append(textwrap.dedent("""\
+        <DeleteRegionMover name="remove_chains" residue_selector="binder"/>"""))
 
     protocols = [textwrap.dedent("""\
     <Add mover="ssse_cstdes" />
@@ -291,51 +401,119 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True ) -
     <Add mover="rm_cstdes" />
     <Add mover="ssse_cstdes_cart" />
     <Add mover="cst_cstrel" />
-    <Add filter="rmsd_cstdes" />
+    <Add mover="remove_chains" />
+    <Add mover="makeFrags_ffd" />
+    <Add mover="close_loops" />
+    <!--Add filter="rmsd_cstdes" /-->
     """), ]
 
     ld = PROTOCOL_LayerDesign(case) if layer_design else ScriptPieces()
     bf = PROTOCOL_BasicFilters(case, '_cstdes')
-    return ScriptPieces({'scorefxns': scorefxns, 'movers': movers, 'filters': filters,
-                         'residueselectors': residueselectors, 'protocols': protocols}) + ld + bf
+    if not taskoperations:
+        return ScriptPieces({'scorefxns': scorefxns, 'movers': movers, 'filters': filters,
+                             'residueselectors': residueselectors, 'protocols': protocols}) + ld + bf
+    else:
+        return ScriptPieces({'scorefxns': scorefxns, 'movers': movers, 'filters': filters,
+                             'taskoperations': taskoperations, 'movemapfactory': movemapfactory,
+                             'residueselectors': residueselectors, 'protocols': protocols}) + ld + bf
 
 
-def funfoldes( case: Case ) -> str:
+def funfoldes( case: Case,
+               motif: Optional[List] = None,
+               binder: Optional[List] = None,
+               hotspots: Optional[List] = None
+              ) -> str:
     """
+    The general FunFoldDesMover.
+
+    The input pose is the template, where the motif will be grafted into. Thus, if a binder is
+    present, one needs to remove that one before running the NubInitioMover. The binder will be parsed together
+    with the motif. Note, that after the NubInitioMover, the binder will be in the pose. We remove the binder as
+    it is easier to work with files containing only the design afterwards.
     """
-    mid = 2 # math.floor(len(case.secondary_structure) / 2)
-    residueselectors = [textwrap.dedent("""<Index name="piece_ffd" resnums="{}-{}" />""").format(mid - 1, mid + 1),
-                        SELECTOR_SecondaryStructure('sse_ffd', case)]
+    if motif and binder: # binder loaded after
+        coldspots = [s[:-1] for s in motif if s not in hotspots]
+        template = list(set([s[-1] for s in motif]))
+        residueselectors = [textwrap.dedent("""<Index name="piece_ffd" resnums="{}"/>""").format(','.join(motif)),
+                            textwrap.dedent("""<Chain name="template" chains="{}"/>""").format(','.join(template)),
+                            textwrap.dedent("""<Not name="binder" selector="template"/>"""),
+                            SELECTOR_SecondaryStructure('sse_ffd', case)]
+    elif motif: # binder loaded after
+        coldspots = [s[:-1] for s in motif if s not in hotspots]
+        residueselectors = [textwrap.dedent("""<Index name="piece_ffd" resnums="{}"/>""").format(','.join(motif)),
+                            SELECTOR_SecondaryStructure('sse_ffd', case)]
+    else:
+        mid = 2 # math.floor(len(case.secondary_structure) / 2)
+        residueselectors = [textwrap.dedent("""<Index name="piece_ffd" resnums="{}-{}"/>""").format(mid - 1, mid + 1),
+                            SELECTOR_SecondaryStructure('sse_ffd', case)]
 
     filters = [textwrap.dedent("""\
         <RmsdFromResidueSelectorFilter name="rmsd_ffd" reference_selector="sse_ffd"
-            reference_name="sketchPose_ffd" query_selector="sse_ffd" confidence="0." />""")]
+            reference_name="sketchPose_ffd" query_selector="sse_ffd" confidence="0."/>""")]
 
     movers = [MOVER_PeptideStubMover('add_loops_ffd', case), textwrap.dedent("""\
-        <SavePoseMover name="save_ffd" reference_name="sketchPose_ffd" restore_pose="0" />
-        <StructFragmentMover name="makeFrags_ffd" prefix="frags" small_frag_file="{}" large_frag_file="{}" />
-        <AddConstraints name="foldingCST_ffd" >
-            <SegmentedAtomPairConstraintGenerator name="foldCST" residue_selector="sse_ffd" >
+        <SavePoseMover name="save_ffd" reference_name="sketchPose_ffd" restore_pose="0"/>
+        <StructFragmentMover name="makeFrags_ffd" prefix="frags" small_frag_file="{}" large_frag_file="{}"/>
+        <AddConstraints name="foldingCST_ffd">
+            <SegmentedAtomPairConstraintGenerator name="foldCST" residue_selector="sse_ffd">
                 <!--Inner sd="1.2" weight="1." ca_only="1"
-                    use_harmonic="true" unweighted="false" min_seq_sep="4" /-->
+                    use_harmonic="true" unweighted="false" min_seq_sep="4"/-->
                 <Outer sd="2" weight="2." ca_only="1"
-                    use_harmonic="true" unweighted="false"  max_distance="40" />
+                    use_harmonic="true" unweighted="false"  max_distance="40"/>
             </SegmentedAtomPairConstraintGenerator>
-            <!--AutomaticSheetConstraintGenerator name="sheetCST" sd="2.0" distance="6.1" /-->
+            <!--AutomaticSheetConstraintGenerator name="sheetCST" sd="2.0" distance="6.1"/-->
         </AddConstraints>
-        <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10" correction_weights="0">
-        """).format(*case['metadata.fragments.files']), textwrap.dedent("""\
-            <Nub reference_name="sketchPose_ffd" residue_selector="piece_ffd" >
-                <Segment order="1" n_term_flex="2" c_term_flex="1" editable="1,2,3"/></Nub>
-            """), textwrap.dedent("""</NubInitioMover>""")]
-
-    protocols = [textwrap.dedent("""\
-        <Add mover="add_loops_ffd" />
-        <Add mover="save_ffd" />
-        <Add mover="makeFrags_ffd" />
-        <Add mover="foldingCST_ffd" />
-        <Add mover="FFL_ffd" />
-        <Add filter="rmsd_ffd" />""")]
+        """).format(*case['metadata.fragments.files'])]
+    if motif and template:
+        movers.append(textwrap.dedent("""\
+            <DeleteRegionMover name="remove_chains" residue_selector="binder"/>
+            """)
+            )
+        movers.append(textwrap.dedent("""\
+            <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10"
+                correction_weights="0" clear_motif_cst="0">
+                <Nub reference_name="sketchPose_ffd" residue_selector="piece_ffd" binder_selector="binder">
+                    <!--Segment order="1" n_term_flex="1" c_term_flex="1" editable="{}"/-->
+                </Nub>
+            """).format(','.join(coldspots)))
+        movers.append(textwrap.dedent("""</NubInitioMover>"""))
+    elif motif:
+        movers.append( textwrap.dedent("""\
+            <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10"
+                correction_weights="0" clear_motif_cst="0">
+                <Nub reference_name="sketchPose_ffd" residue_selector="piece_ffd">
+                    <!--Segment order="1" n_term_flex="1" c_term_flex="1" editable="{}"/-->
+                </Nub>
+            """).format(','.join(coldspots)))
+        movers.append(textwrap.dedent("""</NubInitioMover>"""))
+    else:
+        movers.append( textwrap.dedent("""\
+            <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10"
+                correction_weights="0" clear_motif_cst="0">
+                <Nub reference_name="sketchPose_ffd" residue_selector="piece_ffd">
+                    <Segment order="1" n_term_flex="2" c_term_flex="1" editable="1,2,3"/>
+                </Nub>
+            """) )
+        movers.append(textwrap.dedent("""</NubInitioMover>"""))
+    if not binder:
+        protocols = [textwrap.dedent("""\
+            <Add mover="add_loops_ffd"/>
+            <Add mover="save_ffd"/>
+            <Add mover="makeFrags_ffd"/>
+            <Add mover="foldingCST_ffd"/>
+            <Add mover="FFL_ffd"/>
+            <!--Add mover="remove_chains"/-->
+            <!--Add filter="rmsd_ffd"/-->""")]
+    else:
+        protocols = [textwrap.dedent("""\
+            <Add mover="add_loops_ffd"/>
+            <Add mover="save_ffd"/>
+            <Add mover="remove_chains"/>
+            <Add mover="makeFrags_ffd"/>
+            <Add mover="foldingCST_ffd"/>
+            <Add mover="FFL_ffd"/>
+            <!--Add mover="remove_chains"/-->
+            <!--Add filter="rmsd_ffd"/-->""")]
 
     with TBcore.on_option_value('psipred', 'script', None):
         bf = PROTOCOL_BasicFilters(case, '_ffd')
@@ -574,10 +752,14 @@ def PROTOCOL_BasicFilters( case: Case, suffix: str = '' ) -> ScriptPieces:
     filters = textwrap.dedent("""\
     <PackStat name="pack{suffix}" confidence="0." />
     <CavityVolume name="cav_vol{suffix}" confidence="0." />
-    <SecondaryStructure name="sse_match{suffix}" ss="{sse1}" compute_pose_secstruct_by_dssp="true" confidence="0." />
     <ScorePoseSegmentFromResidueSelectorFilter name="bbscore{suffix}" confidence="0"
     residue_selector="full_pose" scorefxn="bb_only" />
     """).format(sse1=sse, suffix=suffix)
+
+    if not case.data['metadata']['binder']:
+        filters.append(textwrap.dedent("""\
+        <SecondaryStructure name="sse_match{suffix}" ss="{sse1}" compute_pose_secstruct_by_dssp="true" confidence="0." />
+        """).format(sse1=sse, suffix=suffix))
 
     movers = [textwrap.dedent("""\
     <LabelPoseFromResidueSelectorMover name="labelcore{suffix}" property="CORE" residue_selector="core{suffix}" />
@@ -602,8 +784,12 @@ def PROTOCOL_BasicFilters( case: Case, suffix: str = '' ) -> ScriptPieces:
     <Add mover="sse_report{suffix}"/>
     <Add filter="pack{suffix}" />
     <Add filter="cav_vol{suffix}" />
-    <Add filter="sse_match{suffix}" />
     """).format(suffix=suffix)
+
+    if not case.data['metadata']['binder']:
+        protocols.append(textwrap.dedent("""\
+        <Add filter="sse_match{suffix}" />
+        """).format(suffix=suffix))
 
     return ScriptPieces({'scorefxns': [scorefxns, ], 'residueselectors': [residueselectors, ], 'filters': [filters, ],
                          'movers': movers, 'protocols': [protocols, ]})

@@ -62,10 +62,18 @@ def build_pdb_object( log: Logger,
     pieces = []
     columns = ['auth_comp_id', 'auth_atom_id', 'auth_seq_id', 'Cartn_x', 'Cartn_y', 'Cartn_z']
     start = 1 if len(loops) < len(sses) else loops.pop(0)
+    log.debug(f'starting numbering with: {start}')
     for i, sse in enumerate(sses):
         start = start if i == 0 else int(sses[i - 1]['length']) + loops[i - 1] + start
-        log.debug(f'PDB: Building SSE {i + 1:02d}:{sse["id"]} starting at {start}')
-        pieces.append(PDB(pd.DataFrame(sse['metadata']['atoms'], columns=columns)).renumber(start))
+        pdb_numbering = pd.DataFrame(sse['metadata']['atoms'], columns=columns)['auth_seq_id'].values
+        try:
+            structure = PDB(pd.DataFrame(sse['metadata']['atoms'], columns=columns)).renumber(start)
+        except:
+            structure = PDB(pd.DataFrame(sse['metadata']['atoms'], columns=columns))
+            structure['auth_seq_id'] += (start - structure['auth_seq_id'].values[0])
+
+        structure = structure.assign(sse_id=[sse["id"]]*len(structure), pdb_num=pdb_numbering)
+        pieces.append(structure)
 
     structure = pd.concat(pieces, sort=False).reset_index()
     structure['id'] = list(range(1, structure.shape[0] + 1))
@@ -289,26 +297,26 @@ def default_plane( pick: int ) -> sy.Plane:
 def reverse_motif( log: Logger,
                    source: Union[str, Path],
                    selection: List[str],
+                   attach: List[str],
                    hotspot: str,
-                   shape: str,
-                   binder: Optional[str] = None ) -> Dict:
+                   identifier: str,
+                   binder: Optional[str] = None, ) -> Dict:
     """Process a provided motif so that it can be attached to a :term:`FORM`.
 
     :param log: Logger from the calling :class:`.Node` to keep requested verbosity.
     :param source: File containing the structural data.
     :param selection: Selection defining the motif of interest.
     :param hotspot: Single position defining the exposed side.
-    :param shape: Shape of the motif.
+    :param identifier: Single position defining the exposed side.
     :param binder: Selection defining the binder.
 
     """
     # Load Structure
     pdbSTR = PDB(source, header=False, dehydrate=True)
     # Get the full motif to define its planes
-    pick_motif(log, pdbSTR, selection, hotspot, shape)
+    motif, hotspots  = pick_motif(log, pdbSTR, selection, attach, hotspot)
     # Pick Binder
-    binder = pick_binder(pdbSTR, binder)
-
+    binder = pick_binder(log, pdbSTR, binder)
 
     # # Find motif's orientation
     # eigens = dict(map(reversed, zip(motif['AtomType:CA'].eigenvectors(10), ('perpendicular', 'side', 'major'))))
@@ -328,51 +336,65 @@ def reverse_motif( log: Logger,
     # for k in eigens:
     #     pymol_arrow(f'arrow_{k}', eigens[k][0], eigens[k][-1],
     #                 'white' if k == 'major' else 'red' if k == 'side' else 'green')
+    return motif, binder, hotspots, attach, selection, identifier
 
 
-def pick_motif( log: Logger, pdbSTR: Frame3D, selection: List[str], hotspot: str, shape: str ) -> Dict:
+def pick_motif( log: Logger, pdbSTR: Frame3D, selection: List[str], attach: List[str], hotspot: str ) -> Dict:
     """
     """
     # Get the motif segments
     log.info(f'Loading motifs at {",".join(selection)}.')
     segments = []
-    for s in selection:
+    identification = []
+
+    for s, a in zip(selection, attach):
         s = s.split(':')
-        segments.append(pdbSTR[f'Chain:{s[0]}'][f'Residue:{s[1]}'])
+        st = pdbSTR[f'Chain:{s[0]}'][f'Residue:{s[1]}']
+        segments.append(st)
+        identification.extend([a] * len(st))
     motif = pd.concat(segments)
 
+    motif = motif.assign(sse_id=identification,
+                         internal_num=motif['auth_seq_id'] - (motif['auth_seq_id'].values[0] - 1))
+
     # Get the non-segments
-    log.info(f'Loading regions between segments for shape "{shape}".')
-    midsegs = []
-    for c, i in enumerate(range(1, len(shape), 2)):
-        log.debug(f'Current separator is {shape[i]}')
-        log.debug(f'Placed between selections {selection[c]} and {selection[c + 1]}')
-        if shape[i] == 'x':
-            midsegs.append(None)
-        else:
-            chain = [selection[c].split(':')[0], selection[c + 1].split(':')[0]]
-            if chain[0] != chain[1]:
-                raise StructuralError('Continuos motif cannot be picked from different chains.')
-            resi = [selection[c].split(":")[-1].split("-")[-1], selection[c + 1].split(":")[-1].split("-")[0]]
-            midsegs.append(pdbSTR[f'Chain:{chain[0]}'][f'Residue:{resi[0]}-{resi[1]}'])
-            midsegs[-1] = midsegs[-1].pop_out(0).pop_out(-1)
+    # log.info('Loading regions between segments.')
+    # midsegs = []
+    # for c, i in enumerate(range(1, len(shape), 2)):
+    #     log.debug(f'Current separator is {shape[i]}')
+    #     log.debug(f'Placed between selections {selection[c]} and {selection[c + 1]}')
+    #     if shape[i] == 'x':
+    #         midsegs.append(None)
+    #     else:
+    #         chain = [selection[c].split(':')[0], selection[c + 1].split(':')[0]]
+    #         if chain[0] != chain[1]:
+    #             raise StructuralError('Continuos motif cannot be picked from different chains.')
+    #         resi = [selection[c].split(":")[-1].split("-")[-1], selection[c + 1].split(":")[-1].split("-")[0]]
+    #         midsegs.append(pdbSTR[f'Chain:{chain[0]}'][f'Residue:{resi[0]}-{resi[1]}'])
+    #         midsegs[-1] = midsegs[-1].pop_out(0).pop_out(-1)
 
     # Get the orientation-guiding hotspot
-    log.info(f'Picking the orientation-guiding residue {hotspot}.')
-    htspot = motif[f'Chain:{hotspot.split(":")[0]}'][f'Residue:{hotspot.split(":")[1]}']['AtomType:CA']
-    if htspot.is_empty:
-        raise StructuralError('Orientation-guiding hotspot not found inside the motif.')
-    if len(htspot) > 1:
-        raise StructuralError('Orientation-guiding hotspot should be a single residue.')
+    log.info(f'Picking the hotspot residues {hotspot}.')
+    htspot = pick_hotspots(log, motif, hotspot)
+
+    motif = list(motif[['auth_comp_id', 'auth_atom_id', 'auth_seq_id', 'auth_asym_id', 'sse_id', 'internal_num',
+                        'Cartn_x', 'Cartn_y', 'Cartn_z']].values)
+    # htspot = motif[f'Chain:{hotspot.split(":")[0]}'][f'Residue:{hotspot.split(":")[1]}']['AtomType:CA']
+    # if htspot.is_empty:
+    #     raise StructuralError('Orientation-guiding hotspot not found inside the motif.')
+    # if len(htspot) > 1:
+    #     raise StructuralError('Orientation-guiding hotspot should be a single residue.')
 
     # Get the orientation
-    eigens = single_segment_eigens(log, motif, htspot) if len(segments) == 1 else multi_segment_eigens(log, segments, hotspot)
+    #eigens = single_segment_eigens(log, motif, htspot) if len(segments) == 1 else multi_segment_eigens(log, segments, hotspot)
 
     # Try to identify the orientation of the motif.
-    for i, e in enumerate(eigens):
-        for k in e:
-            pymol_arrow(f'arrow_{motif.id}_{i + 1}_{k}', e[k][0], e[k][-1],
-                        'white' if k == 'major' else 'red' if k == 'side' else 'green')
+    # for i, e in enumerate(eigens):
+    #     for k in e:
+    #         pymol_arrow(f'arrow_{motif.id}_{i + 1}_{k}', e[k][0], e[k][-1],
+    #                     'white' if k == 'major' else 'red' if k == 'side' else 'green')
+
+    return motif, htspot
 
 
 def single_segment_eigens( log: Logger, motif: Frame3D, hotspot: Frame3D ) -> List[Dict]:
@@ -418,7 +440,7 @@ def multi_segment_eigens( log: Logger, motifs: List[Frame3D], hotspot: str ) -> 
     return eigens
 
 
-def pick_binder( pdbSTR: Frame3D, binder: Optional[str] = None ) -> Optional[Frame3D]:
+def pick_binder( log: Logger, pdbSTR: Frame3D, binder: Optional[str] = None ) -> Optional[Frame3D]:
     """Pick binder selection.
     """
     # Pick binder if any
@@ -431,9 +453,23 @@ def pick_binder( pdbSTR: Frame3D, binder: Optional[str] = None ) -> Optional[Fra
         else:
             b = b.split(':')
             bndr.append(pdbSTR[f'Chain:{b[0]}'][f'Residue:{b[1]}'])
-    return pd.concat(bndr)
+    bndr = pd.concat(bndr)
+    bndr = list(bndr[['auth_comp_id', 'auth_atom_id', 'auth_seq_id', 'auth_asym_id',
+                      'Cartn_x', 'Cartn_y', 'Cartn_z']].values)
+    return bndr
 
 
+def pick_hotspots( log: Logger, pdbSTR: Frame3D, hotspots: Optional[str] = None ) -> Optional[Frame3D]:
+    """Pick binder selection.
+    """
+    # Pick binder if any
+    if hotspots is None:
+        return None
+    htspts = []
+    for h in hotspots.split(','):
+        h = h.split(':')
+        htspts.append(pdbSTR[f'Chain:{h[0]}'][f'Residue:{h[1]}'])
+    return pd.concat(htspts)
 
 
 def pymol_arrow( name: str, ini: np.ndarray, end: np.ndarray, color='white' ) -> None:

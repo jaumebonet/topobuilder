@@ -24,7 +24,7 @@ from topobuilder.workflow import Node, NodeOptionsError, NodeDataError
 
 __all__ = ['motif_picker']
 
-Motif = namedtuple('Motif', ['motifs', 'inner', 'binder'])
+#Motif = namedtuple('Motif', ['motifs', 'binder', 'hotpsots', 'attach', 'selection', 'identifier'])
 
 
 class motif_picker( Node ):
@@ -51,17 +51,8 @@ class motif_picker( Node ):
         but without a range.
     :param attach: :term:`FORM` name of the secondary structure to which the segments need to be attached.
         If there is more than one segment, names should be provided in a list.
-    :param shape: The shape of the topology defines the secondary structure types. Thus, a single helix motif
-        will have a shape of ``H``, while an helix-loop-helix would be described as ``HlH`` or a two discontinuous
-        beta motif would be ``ExE``. As a rule, motif segments can be assigned ``H`` or ``E`` and the inbetweens can
-        be either ``l`` if the contiguous secondary structures need to be consecutive and keep the bridging residues
-        or ``x`` if there is no need for that.
     :param binder: Range selection for the binder. It can be provided as a range same as ``selection`` or as one or a
         comma-separated list of chain identifiers.
-    :param extend_n: If provided, extend N-terminal of the segment by so many residues. It has to be a list of length
-        identical to the number of segments.
-    :param extend_c: If provided, extend C-terminal of the segment by so many residues. It has to be a list of length
-        identical to the number of segments.
     :param identifier: Name to give the motif. Otherwise a name is picked related to the position of the :class:`.Node`
         in the :class:`.Pipeline`.
 
@@ -73,23 +64,25 @@ class motif_picker( Node ):
             shape definition.
         :NodeOptionsError: On **initialization**. If any secondary structure identifier in ``attach`` does
             not match *TopoBuilder* naming system.
-        :NodeOptionsError: On **initialization**. If the ``shape`` definition format is unrecognized.
-        :NodeOptionsError: On **initialization**. If amount of segments specified in ``extend_n`` and ``extend_c`` differ.
-        :NodeOptionsError: On **initialization**. If amount of segments specified in ``extend_n`` and ``extend_c`` differ
-            from the number of segments according to ``selection``.
         :NodeDataError: On **check**. If the required fields to be executed are not there.
 
     """
     SHAPE_PATTERN = r'^[HE]([lx][HE])*$'
     REQUIRED_FIELDS = ('topology.architecture', )
-    RETURNED_FIELDS = ('metadata.motif_picker')
+    RETURNED_FIELDS = ('metadata.motif_picker.motifs')
     VERSION = 'v1.0'
 
-    def __init__( self, tag: int, source: Union[Path, str], selection: str, hotspot: str,
-                  attach: Union[str, List[str]], shape: str, binder: Optional[str] = None,
-                  extend_n: Optional[List[int]] = None, extend_c: Optional[List[int]] = None,
+    def __init__( self, tag: int,
+                  source: Union[Path, str],
+                  selection: str,
+                  hotspot: str,
+                  attach: Union[str, List[str]],
+                  #shape: Union[str, List[str]],
+                  binder: Optional[str] = None,
                   identifier: Optional[str] = None ):
         super(motif_picker, self).__init__(tag)
+
+        self.Motif = namedtuple('Motif', ['motifs', 'binder', 'hotpsots', 'attach', 'selection', 'identifier'])
 
         self.identifier = identifier if identifier is not None else self.tag
         # Obtaining structure input file
@@ -101,16 +94,14 @@ class motif_picker( Node ):
         self.selection = selection.split(',')
         self.hotspot = hotspot
         self.attach = attach if isinstance(attach, list) else [attach, ]
-        self.shape = shape
+        #self.shape = shape if isinstance(shape, list) else [shape, ]
 
         # Each segments belongs to a SSE
-        if len(self.selection) != len(self.attach):
-            err = 'The number of selection segments should match the number of structures to attach. There are '
-            err += f'{len(self.selection)} segments requested to be assigned to {len(self.attach)} structures.'
-            raise NodeOptionsError(err)
-        # The shape defines propely the selection
-        if len(self.shape) != (len(self.selection) * 2) - 1:
-            raise NodeOptionsError(f'Shape definition {self.shape} does not match with the provided number of segments.')
+        #if len(self.selection) != len(self.attach):
+        #    err = 'The number of selection segments should match the number of structures to attach. There are '
+        #    err += f'{len(self.selection)} segments requested to be assigned to {len(self.attach)} structures.'
+        #    raise NodeOptionsError(err)
+
         # The names of the SSE to attach the motif can exist.
         err = []
         for sse in self.attach:
@@ -118,34 +109,17 @@ class motif_picker( Node ):
                 err.append(f'Unrecognized SSE identifier in {sse}.')
         if len(err) > 0:
             raise NodeOptionsError('\n'.join(err))
-        # Check that the shape definition is sound
-        if not re.match(self.SHAPE_PATTERN, self.shape):
-            raise NodeOptionsError(f'The shape definition {self.shape} does not match the expected format.')
 
         # Capture binder selection
         self.binder = binder
 
-        # Manage extension requests
-        self.extend_n = [0, ] * len(self.selection) if extend_n is None else extend_n
-        self.extend_c = [0, ] * len(self.selection) if extend_c is None else extend_c
-
-        if len(self.extend_n) != len(self.extend_c):
-            err = f'Number of segments expected by extend_n ({len(self.extend_n)}) does not match the number '
-            err += f'of segments expected by extend_c ({len(self.extend_c)}).'
-            raise NodeOptionsError(err)
-        if len(self.extend_n) != len(self.selection):
-            err = f'Number of extensions ({len(self.extend_n)}) does not match number of '
-            err += f'requested segments ({len(self.selection)}).'
-            raise NodeOptionsError(err)
-
         # Chatty
-        self.log.debug(f'Picking a {len(self.selection)}-segment motif from {self.source} of shape {self.shape}.')
+        self.log.debug(f'Picking a {len(self.selection)}-segment motif from {self.source}.')
         self.log.debug(f'Hotspot residue used to guide orientation is {self.hotspot}.')
         self.log.debug(f'Motif segments are to be assigned to SSE(s) {",".join(self.attach)}.')
         if self.binder is not None:
             self.log.debug(f'A binder on selection {self.binder} has been included.')
-        self.log.debug(f'Segments will be extended on their C-terminal by {",".join([str(x) for x in self.extend_c])}.')
-        self.log.debug(f'Segments will be extended on their N-terminal by {",".join([str(x) for x in self.extend_n])}.')
+
 
     def single_check( self, dummy: Dict ) -> Dict:
         kase = Case(dummy)
@@ -169,10 +143,11 @@ class motif_picker( Node ):
 
         # Load Structure and create eigens
         try:
-            motif = Motif(*reverse_motif(self.log, self.source, self.selection, self.hotspot, self.shape, self.binder))
+            motifs = self.Motif(*reverse_motif(self.log, self.source, self.selection, self.attach,
+                                          self.hotspot,  self.identifier, self.binder))
         except StructuralError as se:
             raise NodeDataError(str(se))
-
+        result['motifs'] = motifs
         # Attach data and return
         kase.data.setdefault('metadata', {}).setdefault('motif_picker', []).append(result)
         return kase.data

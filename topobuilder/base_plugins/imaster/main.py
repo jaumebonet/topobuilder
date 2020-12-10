@@ -18,6 +18,7 @@ import shlex
 import math
 import os
 import sys
+import glob
 
 # External Libraries
 import numpy as np
@@ -76,6 +77,7 @@ class imaster( Node ):
                   rmsd: Optional[float] = 5.0,
                   bin: Optional[str] = 'mid',
                   step: Optional[int] = None,
+                  subsampling: Optional[int] = None,
                   corrections: Optional[Dict] = dict() ):
         super(imaster, self).__init__(tag)
 
@@ -83,6 +85,7 @@ class imaster( Node ):
         self.rmsd = rmsd
         self.bin = bin
         self.step = step
+        self.subsampling = subsampling
         self.corrections = corrections if TBcore.get_option('system', 'jupyter') else {}
 
 
@@ -173,7 +176,7 @@ class imaster( Node ):
             run(createpds, stdout=DEVNULL)
             masters = TButil.master_best_each(self.log, query.with_suffix('.pds'), stepfolder.joinpath('_master'), self.rmsd)
             data = self.submit_searches(masters, stepfolder, current_case_file, '.'.join([x['id'] for x in sses]))
-            data = self.calc_corrections(data, kase, set(data['layers']), done_l, extras, self.bin, data_prev=data_prev)
+            data = self.calc_corrections(data, kase, set(data['layers']), done_l, extras, rules, bin=self.bin, data_prev=data_prev)
             data_prev = pd.read_csv(stepfolder.joinpath('geometry.csv'))
 
             kase.data['metadata']['imaster'].setdefault('step{:02d}'.format(i + 1), data)
@@ -195,7 +198,8 @@ class imaster( Node ):
             return {'matches': unimaster, 'stats': unidata, 'corrections': None,
                     'layers': list(set([x[0] for x in current_sse.split('.')]))}
         if not TBcore.get_option('slurm', 'use'):
-            self.no_slurm(cmd, current_case_file, current_sse, unimaster, imaster, unidata.with_suffix(''))
+            self.no_slurm(cmd, current_case_file, current_sse, unimaster, imaster,
+                          unidata.with_suffix(''))
         else:
             self.with_slurm(cmd, current_case_file, current_sse, unimaster, imaster, unidata)
 
@@ -767,7 +771,7 @@ class imaster( Node ):
                   current_sse: str,
                   unimaster: Path,
                   imaster: Path,
-                  unidata: Path ):
+                  unidata: Path):
         """
         """
         # Search on MASTER
@@ -778,18 +782,37 @@ class imaster( Node ):
             outf = Path(com[-1])
             if outf.is_file():
                 result.append(str(outf))
-        result.insert(0, 'cat')
-        self.log.notice(f'Unify matches at {unimaster}')
-        with unimaster.open('w') as fd:
-            run(result, stdout=fd)
-        result[0] = 'rm'
-        #if len(result) > 1:
-        #    run(result[:-1], stdout=DEVNULL)
-        #else:
-        #    run(result[:-2], stdout=DEVNULL)
 
-        # Analyze
-        createbash = 'python {0} -case {1} -master {2} -present {3} -out {4}'
-        cmd = shlex.split(createbash.format(imaster, current_case_file, unimaster, current_sse, unidata))
-        self.log.notice(f'EXECUTE: {" ".join([str(x) for x in cmd])}')
-        run(cmd, stdout=DEVNULL)
+        try:
+            result.insert(0, 'cat')
+            self.log.notice(f'Unify matches at {unimaster}')
+            with unimaster.open('w') as fd:
+                run(result, stdout=fd)
+        except:
+            with unimaster.open('w') as fd:
+                for ms in glob.iglob(os.path.dirname(result[-1]) + '/*.master'):
+                    with open(ms, 'r') as f:
+                        lines = f.readlines()
+                    for line in lines:
+                        fd.write(line)
+
+        if self.subsampling: # random subsampling due to local (no_slurm)
+            self.log.debug(f'Sub-sampling {self.subsampling} from full master matches.')
+            with unimaster.open('r') as fd:
+                lines = fd.readlines()
+            lines = np.random.choice(lines, self.subsampling, replace=False)
+            unimastersub = str(unimaster).replace('match.master', 'matchsub.master')
+            with open(unimastersub, 'w') as f:
+                for line in lines:
+                    f.write(line)
+            # Analyze
+            createbash = 'python {0} -case {1} -master {2} -present {3} -out {4}'
+            cmd = shlex.split(createbash.format(imaster, current_case_file, unimastersub, current_sse, unidata))
+            self.log.notice(f'EXECUTE: {" ".join([str(x) for x in cmd])}')
+            run(cmd, stdout=DEVNULL)
+
+        else:
+            createbash = 'python {0} -case {1} -master {2} -present {3} -out {4}'
+            cmd = shlex.split(createbash.format(imaster, current_case_file, unimaster, current_sse, unidata))
+            self.log.notice(f'EXECUTE: {" ".join([str(x) for x in cmd])}')
+            run(cmd, stdout=DEVNULL)
