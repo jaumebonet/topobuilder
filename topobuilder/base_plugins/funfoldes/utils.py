@@ -150,16 +150,23 @@ def build_template_sketch( log: Logger, case: Case, full_file: Union[Path, str] 
     return binder_chains, res_attach, res_hotspots, res_coldspots, m_identifiers, bindersfile
 
 
-def make_scripts( case: Case,
+def make_scripts( log: Logger,
+                  case: Case,
                   wpaths: Dict,
                   data: Dict,
                   natbias: float = 2.5,
-                  layer_design: bool = True
+                  layer_design: bool = True,
+                  binder: Optional[List] = None,
+                  motif: Optional[List] = None,
+                  hotspots: Optional[List] = None,
+                  identifiers: Optional[List] = None,
+                  binderfile: Optional[str] = None,
                   ) -> Tuple[str, str]:
     """Create the folding and design scripts.
     """
-    fld = TButil.rosettascript(TButil.funfoldes(case))
-    dsg = TButil.rosettascript(TButil.constraint_design(case, natbias, layer_design))
+    fld = TButil.rosettascript(TButil.funfoldes(case, motif, binder, hotspots))
+    dsg = TButil.rosettascript(TButil.constraint_design(case, natbias, layer_design,
+                                                        motif, binder, hotspots))
     wts = TButil.get_weight_patches()
 
     if TBcore.get_option('system', 'jupyter'):
@@ -176,7 +183,7 @@ def make_scripts( case: Case,
         elif ifold:
             ifold = Path(ifold)
             if not ifold.is_file():
-                raise IOError('Unknown file {}'.format(ifold))
+                raise IOError(f'Unknown file {ifold}')
             fld = ''.join(list(ifold.open().readlines()))
 
         if idsgn is None:
@@ -189,26 +196,25 @@ def make_scripts( case: Case,
         elif idsgn:
             idsgn = Path(idsgn)
             if not idsgn.is_file():
-                raise IOError('Unknown file {}'.format(idsgn))
+                raise IOError(f'Unknown file {idsgn}')
             dsg = ''.join(list(idsgn.open().readlines()))
 
         if ifold is None or idsgn is None:
             TButil.exit()
 
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('Writing the folding RosettaScript file: {}\n'.format(wpaths['foldRS']))
+    log.info(f'Writing the folding RosettaScript file: {wpaths["foldRS"]}\n')
     with wpaths['foldRS'].open('w') as fd:
         fd.write(fld)
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('Writing the design RosettaScript file: {}\n'.format(wpaths['designRS']))
+    log.info(f'Writing the design RosettaScript file: {wpaths["designRS"]}\n')
     with wpaths['designRS'].open('w') as fd:
         fd.write(dsg)
+
     if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('Writing weigth 0 patches for folding: {}, {}\n'.format(wpaths['wts0F'], wpaths['wts0_patchF']))
-        sys.stdout.write('Writing weigth 1 patches for folding: {}, {}\n'.format(wpaths['wts1F'], wpaths['wts1_patchF']))
-        sys.stdout.write('Writing weigth 2 patches for folding: {}, {}\n'.format(wpaths['wts2F'], wpaths['wts2_patchF']))
-        sys.stdout.write('Writing weigth 3 patches for folding: {}, {}\n'.format(wpaths['wts3F'], wpaths['wts3_patchF']))
-        sys.stdout.write('Writing weigth 5 patches for folding: {}, {}\n'.format(wpaths['wts5F'], wpaths['wts5_patchF']))
+        log.info('Writing weigth 0 patches for folding: {}, {}\n'.format(wpaths['wts0F'], wpaths['wts0_patchF']))
+        log.info('Writing weigth 1 patches for folding: {}, {}\n'.format(wpaths['wts1F'], wpaths['wts1_patchF']))
+        log.info('Writing weigth 2 patches for folding: {}, {}\n'.format(wpaths['wts2F'], wpaths['wts2_patchF']))
+        log.info('Writing weigth 3 patches for folding: {}, {}\n'.format(wpaths['wts3F'], wpaths['wts3_patchF']))
+        log.info('Writing weigth 5 patches for folding: {}, {}\n'.format(wpaths['wts5F'], wpaths['wts5_patchF']))
     with wpaths['wts0F'].open('w') as fd: fd.write(wts[0])
     with wpaths['wts0_patchF'].open('w') as fd: fd.write(wts[1])
     with wpaths['wts1F'].open('w') as fd: fd.write(wts[2])
@@ -219,7 +225,6 @@ def make_scripts( case: Case,
     with wpaths['wts3_patchF'].open('w') as fd: fd.write(wts[7])
     with wpaths['wts5F'].open('w') as fd: fd.write(wts[8])
     with wpaths['wts5_patchF'].open('w') as fd: fd.write(wts[9])
-
 
     data['script']['folding'] = wpaths['foldRS']
     data['script']['design'] = wpaths['designRS']
