@@ -46,6 +46,16 @@ def folder_structure( case: Case ) -> Dict:
     pdb_file = folders.joinpath('template_sketch.pdb')
     ffd_fold_file = folders.joinpath('funfoldes_fold.xml')
     ffd_design_file = folders.joinpath('funfoldes_design.xml')
+    wts0_file = folders.joinpath('score0.wts')
+    wts0_patch_file = folders.joinpath('score0.wts_patch')
+    wts1_file = folders.joinpath('score1.wts')
+    wts1_patch_file = folders.joinpath('score1.wts_patch')
+    wts2_file = folders.joinpath('score2.wts')
+    wts2_patch_file = folders.joinpath('score2.wts_patch')
+    wts3_file = folders.joinpath('score3.wts')
+    wts3_patch_file = folders.joinpath('score3.wts_patch')
+    wts5_file = folders.joinpath('score5.wts')
+    wts5_patch_file = folders.joinpath('score5.wts_patch')
     checkpoint = folders.joinpath('checkpoint.json')
 
     return {'main': folders,                # Main plugin folder
@@ -53,9 +63,19 @@ def folder_structure( case: Case ) -> Dict:
             'pdb': pdb_file,                # Path to the template PDB file
             'foldRS': ffd_fold_file,        # Path to the Fold script
             'designRS': ffd_design_file,    # Path to the Design script
+            'wts0F': wts0_file,
+            'wts0_patchF': wts0_patch_file,
+            'wts1F': wts1_file,
+            'wts1_patchF': wts1_patch_file,
+            'wts2F': wts2_file,
+            'wts2_patchF': wts2_patch_file,
+            'wts3F': wts3_file,
+            'wts3_patchF': wts3_patch_file,
+            'wts5F': wts5_file,
+            'wts5_patchF': wts5_patch_file,
             'checkpoint': checkpoint        # Path to the Checkpoint file (.json)
             }
-
+            
 
 def build_template_sketch( log: Logger, case: Case, full_file: Union[Path, str] ):
     """Generate the PDB file used as template to fold.
