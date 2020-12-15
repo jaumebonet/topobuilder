@@ -8,7 +8,7 @@
 """
 # Standard Libraries
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, List
 import math
 from ast import literal_eval
 from subprocess import run, DEVNULL
@@ -31,10 +31,10 @@ import topobuilder.utils.master as TBMaster
 import topobuilder.utils.structure as TBstructure
 
 
-__all__ = ['loop_master']
+__all__ = ['loopgroup_master']
 
 
-class loop_master( Node ):
+class loopgroup_master( Node ):
     """Find loops capable of closing a super-secondary structure with :term:`MASTER` searches.
 
     The search will provide loops for each pair of SSE, together with fragment sets covering each
@@ -74,18 +74,18 @@ class loop_master( Node ):
     VERSION = 'v1.0'
 
     def __init__( self, tag: int,
+                  loop_groups: List,
                   loop_range: Optional[int] = 3,
                   top_loops: Optional[int] = 20,
-                  hairpins_2: Optional[bool] = True,
-                  rmsd_cut: Optional[float] = 5.0,
-                  filter: Optional[Union[str, Path]] = None ):
-        super(loop_master, self).__init__(tag)
+                  #hairpins_2: Optional[bool] = True,
+                  rmsd_cut: Optional[float] = 5.0 ):
+        super(loopgroup_master, self).__init__(tag)
 
+        self.steps = loop_groups
         self.loop_range = loop_range
         self.top_loops = top_loops
-        self.hairpins_2 = hairpins_2
+        #self.hairpins_2 = hairpins_2
         self.rmsd_cut = rmsd_cut
-        self.filter = filter
         self.multiplier = 3 # applied to the top_loops selection to give the file some margin.
 
         # Force is set to True as another MASTER-dependent pluggin might
@@ -123,28 +123,33 @@ class loop_master( Node ):
             kase = kase.apply_topologies()[0]
 
         # Generate the folder tree for a single connectivity.
-        folders = kase.connectivities_paths[0].joinpath('loop_master')
+        folders = kase.connectivities_paths[0].joinpath('loopgroup_master')
         folders.mkdir(parents=True, exist_ok=True)
 
         # Global step distance
         loop_step = kase.cast_absolute()['configuration.defaults.distance.loop_step']
+
+        self.log.debug('STEPS HERE')
+        self.log.debug(self.steps)
 
         # Output keys
         kase.data.setdefault('metadata', {}).setdefault('loop_fragments', [])
         kase.data.setdefault('metadata', {}).setdefault('loop_lengths', [])
 
         # Find steps: Each pair of secondary structure.
-        it = kase.connectivities_str[0].split('.')
-        steps = [it[i:i + 2] for i in range(0, len(it) - 1)]
+        #it = kase.connectivities_str[0].split('.')
+        #steps = [it[i:i + 2] for i in range(0, len(it) - 1)]
         lengths = kase.connectivity_len[0]
         start = 1
 
-        for i, sse in enumerate(steps):
+        for i, (group, infos) in enumerate(self.steps.items()):
+            self.log.info(f'Search at group {group}')
+
             # 1. Make folders and files
-            wfolder = folders.joinpath(f'loop{i + 1:02d}')
+            wfolder = folders.joinpath(f'loopgroup{i + 1:02d}')
             wfolder.mkdir(parents=True, exist_ok=True)
-            outfile = wfolder.joinpath(f'loop_master.jump{i + 1:02d}.pdb')
-            outfilePDS = wfolder.joinpath(f'loop_master.jump{i + 1:02d}.pds')
+            outfile = wfolder.joinpath(f'loopgroup_master.iter{i + 1:02d}.pdb')
+            outfilePDS = wfolder.joinpath(f'loopgroup_master.iter{i + 1:02d}.pds')
             masfile = outfile.with_suffix('.master')
             checkpoint = wfolder.joinpath('checkpoint.json')
 
@@ -158,17 +163,16 @@ class loop_master( Node ):
 
             # 3. Check hairpin
             # Get SSEs and identifiers
-            sse1, sse2 = kase.get_sse_by_id(sse[0]), kase.get_sse_by_id(sse[1])
-            sse1_name, sse2_name = sse1['id'], sse2['id']
-            is_hairpin = self.check_hairpin(sse1_name, sse2_name)
+            sses = [kase.get_sse_by_id(sse) for sse in infos[0]]
+            #sse1_name, sse2_name = sse1['id'], sse2['id']
+            #is_hairpin = self.check_hairpin(sse1_name, sse2_name)
 
             # 4. Generate structures
-            sse1, sse2 = TBstructure.build_pdb_object(self.log, [sse1, sse2], 5,
-                                                      concat=False, outfile=outfile)
+            sses = TBstructure.build_pdb_object(self.log, sses, 5, concat=False, outfile=outfile)
 
             if not masfile.is_file():
                 # 5. calculate expected loop length by loop_step
-                Mdis, mdis = TBstructure.get_loop_length(self.log, sse1, sse2, loop_step, self.loop_range)
+                #Mdis, mdis = TBstructure.get_loop_length(self.log, sse1, sse2, loop_step, self.loop_range)
 
                 # 6. Run MASTER
                 #outfilePDS = outfile if outfile is not None else Path(outfile).with_suffix('.pds')
@@ -178,34 +182,56 @@ class loop_master( Node ):
                 self.log.debug(f'EXECUTE: {" ".join(cmd)}')
                 run(cmd, stdout=DEVNULL)
                 # -> run MASTER
-                cmd = TBMaster.master_fixedgap(outfilePDS, self.pdsdb, masfile, mdis, Mdis, self.rmsd_cut)
+                cmd = TBMaster.master_groupedgap(outfilePDS, self.pdsdb, masfile, infos[1], self.rmsd_cut)
                 self.log.debug(f'EXECUTE: {" ".join(cmd)}')
                 result = run(cmd, stdout=DEVNULL)
 
-                if result.returncode: # no loop between that connection, e.g. a motif ranging over multiple sse with keeping the loops
-                    # 4. Generate structures
-                    self.log.debug('generate combined structure')
-                    sse = pd.concat([sse1, sse2], sort=False)
+                # TODO: implement motif compability
+                # if result.returncode: # no loop between that connection, e.g. a motif ranging over multiple sse with keeping the loops
+                #     # 4. Generate structures
+                #     self.log.debug('generate combined structure')
+                #     sse = pd.concat([sse1, sse2], sort=False)
+                #
+                #     # 6. Run MASTER
+                #     self.log.debug(Path(outfile))
+                #     #outfilePDS = outfile if outfile is not None else Path(outfile).with_suffix('.pds')
+                #     self.log.debug(f'FILE {outfilePDS}')
+                #     # -> make PDS query
+                #     cmd = TBMaster.createPDS(outfile, outfilePDS)
+                #     self.log.debug(f'EXECUTE: {" ".join(cmd)}')
+                #     run(cmd, stdout=DEVNULL)
+                #     # -> run MASTER
+                #     cmd = TBMaster.master_nogap(outfilePDS, self.pdsdb, masfile, self.rmsd_cut)
+                #     self.log.debug(f'EXECUTE: {" ".join(cmd)}')
+                #     run(cmd, stdout=DEVNULL)
+                #
+                #     # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
+                #     match_count = self.minimize_master_file(masfile)
+                #     self.log.debug(f'match count here {match_count}')
+                #
+                #     # 7. Retrieve MASTER data
+                #     dfloop = self.process_master_data_no_gap(masfile, sse1_name, sse2_name)
+                #     sse1l, loopl, sse2l = lengths[i], int(dfloop['loop_length'].values[0]), lengths[i + 1]
+                #     total_len = sse1l + loopl + sse2l
+                #     end_edge = total_len + start - 1
+                #     edges = {'ini': int(start), 'end': int(end_edge), 'sse1': int(sse1l), 'loop': int(loopl), 'sse2': int(sse2l)}
+                #     self.log.debug(f'INI: {start}; END: {end_edge}; SSE1: {sse1l}; LOOP: {loopl}; SSE2: {sse2l}')
+                #     self.log.debug(dfloop.to_string())
+                #
+                #     # 8. Bring and Combine fragments from the different sources.
+                #     loop_data = self.make_fragment_files(dfloop, edges, masfile)
+                #     loop_data['match_count'] += match_count
 
-                    # 6. Run MASTER
-                    self.log.debug(Path(outfile))
-                    #outfilePDS = outfile if outfile is not None else Path(outfile).with_suffix('.pds')
-                    self.log.debug(f'FILE {outfilePDS}')
-                    # -> make PDS query
-                    cmd = TBMaster.createPDS(outfile, outfilePDS)
-                    self.log.debug(f'EXECUTE: {" ".join(cmd)}')
-                    run(cmd, stdout=DEVNULL)
-                    # -> run MASTER
-                    cmd = TBMaster.master_nogap(outfilePDS, self.pdsdb, masfile, self.rmsd_cut)
-                    self.log.debug(f'EXECUTE: {" ".join(cmd)}')
-                    run(cmd, stdout=DEVNULL)
+                #else:
 
-                    # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
-                    match_count = self.minimize_master_file(masfile)
-                    self.log.debug(f'match count here {match_count}')
+                # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
+                match_count = self.minimize_master_file(masfile)
+                # 7. Retrieve MASTER data
+                df_container = self.process_master_data(masfile, infos[0], infos[1], infos[2])
 
-                    # 7. Retrieve MASTER data
-                    dfloop = self.process_master_data_no_gap(masfile, sse1_name, sse2_name)
+                loop_datas = []
+                for indx in list(df_container.order.drop_duplicates()):
+                    dfloop = df_container[df_container.order == indx]
                     sse1l, loopl, sse2l = lengths[i], int(dfloop['loop_length'].values[0]), lengths[i + 1]
                     total_len = sse1l + loopl + sse2l
                     end_edge = total_len + start - 1
@@ -214,33 +240,19 @@ class loop_master( Node ):
                     self.log.debug(dfloop.to_string())
 
                     # 8. Bring and Combine fragments from the different sources.
-                    loop_data = self.make_fragment_files(dfloop, edges, masfile)
+                    loop_data, nfolder = self.make_fragment_files(dfloop, edges, masfile, wfolder, no_loop=True)
                     loop_data['match_count'] += match_count
 
-                else:
-                    # 6. Minimize master data (pick top_loopsx3 lines to read and minimize the files)
-                    match_count = self.minimize_master_file(masfile)
-                    # 7. Retrieve MASTER data
-                    dfloop = self.process_master_data(masfile, sse1_name, sse2_name, is_hairpin and self.hairpins_2)
-                    sse1l, loopl, sse2l = lengths[i], int(dfloop['loop_length'].values[0]), lengths[i + 1]
-                    total_len = sse1l + loopl + sse2l
-                    end_edge = total_len + start - 1
-                    edges = {'ini': int(start), 'end': int(end_edge), 'sse1': int(sse1l), 'loop': int(loopl), 'sse2': int(sse2l)}
-                    self.log.debug(f'INI: {start}; END: {end_edge}; SSE1: {sse1l}; LOOP: {loopl}; SSE2: {sse2l}')
-                    self.log.debug(dfloop.to_string())
+                    # 9. Save data in the Case
+                    kase.data['metadata']['loop_fragments'].append(loop_data)
+                    kase.data['metadata']['loop_lengths'].append(int(loopl))
+                    start += (sse1l + loopl)
 
-                    # 8. Bring and Combine fragments from the different sources.
-                    loop_data = self.make_fragment_files(dfloop, edges, masfile, no_loop=True)
-                    loop_data['match_count'] += match_count
+                    # 10. Checkpoint save
+                    #checkpoint = nfolder.joinpath('checkpoint.json')
+                    loop_datas.append(loop_data)
 
-            # 9. Save data in the Case
-            kase.data['metadata']['loop_fragments'].append(loop_data)
-            kase.data['metadata']['loop_lengths'].append(int(loopl))
-
-            start += (sse1l + loopl)
-
-            # 10. Checkpoint save
-            TButil.checkpoint_out(self.log, checkpoint, loop_data)
+                TButil.checkpoint_out(self.log, checkpoint, loop_datas)
 
         return kase
 
@@ -253,7 +265,7 @@ class loop_master( Node ):
             raise NodeDataError(f'{fragpath.name} is not a folder.')
         return pd.DataFrame([(x.name[:4], x.name[5:6], x, y) for x, y in zip(sorted(fragpath.glob('*/*3mers.gz')),
                                                                              sorted(fragpath.glob('*/*9mers.gz')))],
-                            columns=['pdb', 'chain', '3mers', '9mers'])
+                              columns=['pdb', 'chain', '3mers', '9mers'])
 
     def get_abegos( self ) -> pd.DataFrame:
         """Load ABEGO data.
@@ -290,67 +302,88 @@ class loop_master( Node ):
             pass
         return num_lines
 
-    def process_master_data( self, masfile: Path, name1: str, name2: str, hairpin: bool ) -> pd.DataFrame:
+    def process_master_data( self, masfile: Path, names: List, loop_lengths: str, loop_orders: str ) -> pd.DataFrame:
         """Get length data from the MASTER matches.
         """
-        def cutter(row):
+        def cutter(row, num):
             match = row['match']
             # MASTER starts match count at 0!
-            loop = row['abego'][match[0][1] + 1: match[1][0]]
-            return row['abego'][match[0][0]: match[1][1] + 1], loop, len(loop)
+            self.log.debug(match[num][1] + 1)
+            self.log.debug(match[num + 1][0])
+            self.log.debug(row['abego'])
+            loop = row['abego'][match[num][1] + 1: match[num + 1][0]]
+            return row['abego'][match[num][0]: match[num + 1][1] + 1], loop, len(loop), match[num][0], match[num + 1][1] + 1
 
         if masfile.with_suffix('.csv').is_file():
             df = pd.read_csv(masfile.with_suffix('.csv'))
             df['match'] = df['match'].apply(literal_eval)
             return df
 
+        llens = loop_lengths.split(';')
+        pnames = [(names[i],names[i+1]) for i in range(len(names) - 1)]
+        lorder = loop_orders.split(';')
+
         dfloop = parse_master_file(masfile)
         dfloop = dfloop.merge(self.abegos, on=['pdb', 'chain']).merge(self.fragments, on=['pdb', 'chain']).dropna()
-        dfloop[['abego', 'loop', 'loop_length']] = dfloop.apply(cutter, axis=1, result_type='expand')
-        dfloop = dfloop.iloc[:self.top_loops]
-        dfloop['length_count'] = dfloop.loop_length.map(dfloop.loop_length.value_counts())
-        dfloop.drop(columns=['pds_path']).to_csv(masfile.with_suffix('.all.csv'), index=False)
-        finaldf = dfloop.sort_values('rmsd').drop_duplicates(['loop'])
 
-        pick = 0
-        if hairpin and 2 in finaldf['loop_length'].values:
-            pick = 2
-        else:
+        container = []
+        for k, (pname, llen, lord) in enumerate(zip(pnames, llens, lorder)):
+            dfloop_copy = dfloop.copy()
+            if lord is 'x': # skip regions that are not of interest
+                continue
+            self.log.info(f'Current jump is {pname[0], pname[1]} with {k}')
+            dfloop_copy[['abego', 'loop', 'loop_length', 'start', 'stop']] = dfloop_copy.apply(cutter, num=k, axis=1, result_type='expand')
+            dfloop_copy = dfloop_copy.iloc[:self.top_loops]
+            self.log.debug('LOOP LENTS')
+            self.log.debug(dfloop_copy['loop_length'])
+            dfloop_copy['length_count'] = dfloop_copy.loop_length.map(dfloop_copy.loop_length.value_counts())
+            self.log.debug('LOOP LENTS')
+            self.log.debug(dfloop_copy['length_count'])
+            dfloop_copy.drop(columns=['pds_path']).to_csv(masfile.with_suffix('.all.csv'), index=False)
+            finaldf = dfloop_copy.sort_values('rmsd').drop_duplicates(['loop'])
+
+            #pick = 0
+            #if hairpin and 2 in finaldf['loop_length'].values:
+            #    pick = 2
+            #else:
             pick = finaldf[finaldf['length_count'] == finaldf['length_count'].max()]['loop_length'].min()
-        finaldf = finaldf[finaldf['loop_length'] == pick]
+            finaldf = finaldf[finaldf['loop_length'] == pick]
 
-        TBPlot.plot_loop_length_distribution(self.log, dfloop, pick, masfile.with_suffix(''), f'loop {name1} <-> {name2}')
+            TBPlot.plot_loop_length_distribution(self.log, dfloop_copy, pick, masfile.with_suffix(''), f'loop {pname[0]} <-> {pname[1]}')
 
-        df = finaldf.drop(columns=['pds_path'])
-        df.to_csv(masfile.with_suffix('.csv'), index=False)
-        return df
+            df = finaldf.drop(columns=['pds_path'])
+            df = df.assign(order=[int(lord)]*len(df))
+            masfile2 = str(masfile) + f'.jump{int(lord):02d}.csv'
+            df.to_csv(masfile2, index=False)
+            container.append(df)
+        return pd.concat(container).sort_values('order')
 
-    def process_master_data_no_gap( self, masfile: Path, name1: str, name2: str) -> pd.DataFrame:
-        """Get length data from the MASTER matches.
-        """
-        def cutter(row):
-            match = row['match']
-            # MASTER starts match count at 0!
-            return row['abego'][match[0][0]: match[0][-1] + 1], '-', 0
+    # def process_master_data_no_gap( self, masfile: Path, name1: str, name2: str) -> pd.DataFrame:
+    #     """Get length data from the MASTER matches.
+    #     """
+    #     def cutter(row):
+    #         match = row['match']
+    #         # MASTER starts match count at 0!
+    #         return row['abego'][match[0][0]: match[0][-1] + 1], '-', 0
+    #
+    #     if masfile.with_suffix('.csv').is_file():
+    #         df = pd.read_csv(masfile.with_suffix('.csv'))
+    #         df['match'] = df['match'].apply(literal_eval)
+    #         return df
+    #
+    #     dfloop = parse_master_file(masfile)
+    #     dfloop = dfloop.merge(self.abegos, on=['pdb', 'chain']).merge(self.fragments, on=['pdb', 'chain']).dropna()
+    #     dfloop[['abego', 'loop', 'loop_length']] = dfloop.apply(cutter, axis=1, result_type='expand')
+    #     dfloop = dfloop.iloc[:self.top_loops]
+    #     dfloop['length_count'] = dfloop.loop_length.map(dfloop.loop_length.value_counts())
+    #     dfloop.drop(columns=['pds_path']).to_csv(masfile.with_suffix('.all.csv'), index=False)
+    #     finaldf = dfloop.sort_values('rmsd').drop_duplicates(['loop'])
+    #
+    #     df = finaldf.drop(columns=['pds_path'])
+    #     df.to_csv(masfile.with_suffix('.csv'), index=False)
+    #     return df
 
-        if masfile.with_suffix('.csv').is_file():
-            df = pd.read_csv(masfile.with_suffix('.csv'))
-            df['match'] = df['match'].apply(literal_eval)
-            return df
-
-        dfloop = parse_master_file(masfile)
-        dfloop = dfloop.merge(self.abegos, on=['pdb', 'chain']).merge(self.fragments, on=['pdb', 'chain']).dropna()
-        dfloop[['abego', 'loop', 'loop_length']] = dfloop.apply(cutter, axis=1, result_type='expand')
-        dfloop = dfloop.iloc[:self.top_loops]
-        dfloop['length_count'] = dfloop.loop_length.map(dfloop.loop_length.value_counts())
-        dfloop.drop(columns=['pds_path']).to_csv(masfile.with_suffix('.all.csv'), index=False)
-        finaldf = dfloop.sort_values('rmsd').drop_duplicates(['loop'])
-
-        df = finaldf.drop(columns=['pds_path'])
-        df.to_csv(masfile.with_suffix('.csv'), index=False)
-        return df
-
-    def make_fragment_files( self, dfloop: pd.DataFrame, edges: Dict, masfile: Path, no_loop: Optional[bool] = True ) -> Dict:
+    def make_fragment_files( self, dfloop: pd.DataFrame, edges: Dict, masfile: Path, wfolder: Path, no_loop: Optional[bool] = True ) -> Dict:
         """Combin the fragments from the different matches.
         """
         data = {'loop_length': int(dfloop.iloc[0]['loop_length']), 'abego': list(dfloop['loop'].values),
@@ -363,19 +396,19 @@ class loop_master( Node ):
             for i, row in dfloop.iterrows():
                 # Remember: MASTER match starts with 0!
                 dfs3.append((parse_rosetta_fragments(str(row['3mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                             .slice_region(row['match'][0][0] + 1, row['match'][1][1] + 1).sample_top_neighbors(sample)
+                             .slice_region(row['start'], row['stop'] + 1).sample_top_neighbors(sample)
                              .renumber(edges['ini']).top_limit(edges['end'])))
                 dfs9.append((parse_rosetta_fragments(str(row['9mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                             .slice_region(row['match'][0][0] + 1, row['match'][1][1] + 1).sample_top_neighbors(sample)
+                             .slice_region(row['start'], row['stop'] + 1).sample_top_neighbors(sample)
                              .renumber(edges['ini']).top_limit(edges['end'])))
         else:
             for i, row in dfloop.iterrows():
                 # Remember: MASTER match starts with 0!
                 dfs3.append((parse_rosetta_fragments(str(row['3mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                             .slice_region(row['match'][0][0] + 1, row['match'][0][1] + 1).sample_top_neighbors(sample)
+                             .slice_region(row['start'], row['stop'] + 1).sample_top_neighbors(sample)
                              .renumber(edges['ini']).top_limit(edges['end'])))
                 dfs9.append((parse_rosetta_fragments(str(row['9mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                             .slice_region(row['match'][0][0] + 1, row['match'][0][1] + 1).sample_top_neighbors(sample)
+                             .slice_region(row['start'], row['stop'] + 1).sample_top_neighbors(sample)
                              .renumber(edges['ini']).top_limit(edges['end'])))
 
         # Merge Fragments
@@ -387,11 +420,23 @@ class loop_master( Node ):
         dfs3all = dfs3all.sample_top_neighbors(200)
         dfs9all = dfs9all.sample_top_neighbors(200)
 
+        # set up
+        lord = int(dfloop.order.drop_duplicates().values[0])
+        nfolder = masfile.parent.absolute().joinpath(f'loop{int(lord):02d}')
+        self.log.debug(str(nfolder))
+        nfolder.mkdir(parents=True, exist_ok=True)
+        masfile2 = str(nfolder.joinpath(f'jump{int(lord):02d}'))
+
+        self.log.debug(str(masfile2))
+
         self.log.debug('Writing 3mers fragfile\n')
-        data['fragfiles'].append(write_rosetta_fragments(dfs3all, prefix=str(masfile.with_suffix('')), strict=True))
+        #data['fragfiles'].append(write_rosetta_fragments(dfs3all, prefix=str(masfile.with_suffix('')), strict=True))
+        data['fragfiles'].append(write_rosetta_fragments(dfs3all, prefix=masfile2, strict=True))
         self.log.debug(f'3mers fragfile: {data["fragfiles"][-1]}\n')
+
         self.log.debug('Writing 9mers fragfile\n')
-        data['fragfiles'].append(write_rosetta_fragments(dfs9all, prefix=str(masfile.with_suffix('')), strict=True))
+        #data['fragfiles'].append(write_rosetta_fragments(dfs9all, prefix=str(masfile.with_suffix('')), strict=True))
+        data['fragfiles'].append(write_rosetta_fragments(dfs9all, prefix=masfile2, strict=True))
         self.log.debug(f'9mers fragfile: {data["fragfiles"][-1]}\n')
 
         dfs3all.drop(columns=['pdb', 'frame', 'neighbors', 'neighbor',
@@ -401,17 +446,17 @@ class loop_master( Node ):
         imageprefix = masfile.with_suffix('.fragprofile')
         TBPlot.plot_fragment_templates(self.log, dfs3all, dfs9all, imageprefix)
 
-        return data
+        return data, nfolder
 
-    def check_hairpin( self, name1: str, name2: str) -> bool:
-        """Check if a SSE-SSE pair is or not a hairpin.
-        """
-        if name1[0] != name2[0]:
-            return False
-        if name1[-1] != 'E':
-            return False
-        if int(name1[1]) == int(name2[1]) + 1:
-            return True
-        if int(name1[1]) == int(name2[1]) - 1:
-            return True
-        return False
+    # def check_hairpin( self, name1: str, name2: str) -> bool:
+    #     """Check if a SSE-SSE pair is or not a hairpin.
+    #     """
+    #     if name1[0] != name2[0]:
+    #         return False
+    #     if name1[-1] != 'E':
+    #         return False
+    #     if int(name1[1]) == int(name2[1]) + 1:
+    #         return True
+    #     if int(name1[1]) == int(name2[1]) - 1:
+    #         return True
+    #     return False

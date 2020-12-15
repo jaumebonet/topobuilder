@@ -90,6 +90,8 @@ class fragment_maker( Node ):
         # Switch depending on the fragment_protocol
         if self.protocol == 'loop_master':
             data['files'] = self.loop_master_protocol(case, folders)
+        if self.protocol == 'loopgroup_master':
+            data['files'] = self.loop_master_protocol(case, folders)
 
         # Store data
         case.data['metadata']['fragments'] = data
@@ -103,6 +105,7 @@ class fragment_maker( Node ):
         """
         """
         lf = case['metadata.loop_fragments']
+        self.log.debug(lf)
         if lf is None:
             raise NodeMissingError('Data that should be loaded through loop_master is not found.')
 

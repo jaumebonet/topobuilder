@@ -145,11 +145,31 @@ def master_fixedgap( query: Path,
     return shlex.split(masterbash)
 
 
+def master_groupedgap( query: Path,
+                       pds_list: Path,
+                       master_out: Path,
+                       gaps: str,
+                       rmsd_cut: float
+                       ) -> List[List[str]]:
+    """Create the :term:`MASTER` executable for a fixed residue distance between matches.
+
+    :param query: Query PDS file.
+    :param pds_list: File with the database list of PDS targets.
+    :param master_out: Output file with the MASTER results.
+    :param gaps: Allowed lengths between the gaps.
+    :param rmsd_cut: RMSD search cutoff.
+    """
+    master, _ = get_master_exes()
+    masterbash = f'{master} --query {str(query)} --targetList {str(pds_list)} --rmsdCut {rmsd_cut} '
+    masterbash += f'--matchOut {str(master_out)} --gapLen {gaps}'
+    return shlex.split(masterbash)
+
+
 def master_nogap( query: Path,
-                     pds_list: Path,
-                     master_out: Path,
-                     rmsd_cut: float
-                     ) -> List[List[str]]:
+                  pds_list: Path,
+                  master_out: Path,
+                  rmsd_cut: float
+                  ) -> List[List[str]]:
     """Create the :term:`MASTER` executable for a fixed residue distance between matches.
 
     :param query: Query PDS file.
