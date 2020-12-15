@@ -401,7 +401,6 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True,
     <Add mover="rm_cstdes" />
     <Add mover="ssse_cstdes_cart" />
     <Add mover="cst_cstrel" />
-    <Add mover="remove_chains" />
     <Add mover="makeFrags_ffd" />
     <Add mover="close_loops" />
     <!--Add filter="rmsd_cstdes" /-->
@@ -466,10 +465,6 @@ def funfoldes( case: Case,
         """).format(*case['metadata.fragments.files'])]
     if motif and template:
         movers.append(textwrap.dedent("""\
-            <DeleteRegionMover name="remove_chains" residue_selector="binder"/>
-            """)
-            )
-        movers.append(textwrap.dedent("""\
             <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10"
                 correction_weights="0" clear_motif_cst="0">
                 <Nub reference_name="sketchPose_ffd" residue_selector="piece_ffd" binder_selector="binder">
@@ -477,6 +472,10 @@ def funfoldes( case: Case,
                 </Nub>
             """).format(','.join(coldspots)))
         movers.append(textwrap.dedent("""</NubInitioMover>"""))
+    elif binder:
+        movers.append( textwrap.dedent("""\
+            <DeleteRegionMover name="remove_chains" residue_selector="binder"/>
+            """) )
     elif motif:
         movers.append( textwrap.dedent("""\
             <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10"
@@ -495,10 +494,11 @@ def funfoldes( case: Case,
                 </Nub>
             """) )
         movers.append(textwrap.dedent("""</NubInitioMover>"""))
-    if not binder:
+    if binder:
         protocols = [textwrap.dedent("""\
             <Add mover="add_loops_ffd"/>
             <Add mover="save_ffd"/>
+            <Add mover="remove_chains"/>
             <Add mover="makeFrags_ffd"/>
             <Add mover="foldingCST_ffd"/>
             <Add mover="FFL_ffd"/>
@@ -508,7 +508,6 @@ def funfoldes( case: Case,
         protocols = [textwrap.dedent("""\
             <Add mover="add_loops_ffd"/>
             <Add mover="save_ffd"/>
-            <Add mover="remove_chains"/>
             <Add mover="makeFrags_ffd"/>
             <Add mover="foldingCST_ffd"/>
             <Add mover="FFL_ffd"/>
@@ -793,5 +792,5 @@ def PROTOCOL_BasicFilters( case: Case, suffix: str = '' ) -> ScriptPieces:
         <Add filter="sse_match{suffix}" />
         """).format(suffix=suffix))
 
-    return ScriptPieces({'scorefxns': [scorefxns, ], 'residueselectors': [residueselectors, ], 'filters': [filters, ],
-                         'movers': movers, 'protocols': [protocols, ]})
+    return ScriptPieces({'scorefxns': [scorefxns, ], 'residueselectors': [residueselectors, ], 'filters': filters,
+                         'movers': movers, 'protocols': protocols})
