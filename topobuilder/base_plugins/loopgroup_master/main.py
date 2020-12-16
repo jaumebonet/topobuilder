@@ -308,11 +308,8 @@ class loopgroup_master( Node ):
         def cutter(row, num):
             match = row['match']
             # MASTER starts match count at 0!
-            self.log.debug(match[num][1] + 1)
-            self.log.debug(match[num + 1][0])
-            self.log.debug(row['abego'])
             loop = row['abego'][match[num][1] + 1: match[num + 1][0]]
-            return row['abego'][match[num][0]: match[num + 1][1] + 1], loop, len(loop), match[num][0], match[num + 1][1] + 1
+            return row['abego'][match[num][0] : match[num + 1][1] + 1], loop, len(loop), int(match[num][0]), int(match[num + 1][1] + 1)
 
         if masfile.with_suffix('.csv').is_file():
             df = pd.read_csv(masfile.with_suffix('.csv'))
@@ -320,7 +317,7 @@ class loopgroup_master( Node ):
             return df
 
         llens = loop_lengths.split(';')
-        pnames = [(names[i],names[i+1]) for i in range(len(names) - 1)]
+        pnames = [(names[i],names[i + 1]) for i in range(len(names) - 1)]
         lorder = loop_orders.split(';')
 
         dfloop = parse_master_file(masfile)
@@ -396,19 +393,19 @@ class loopgroup_master( Node ):
             for i, row in dfloop.iterrows():
                 # Remember: MASTER match starts with 0!
                 dfs3.append((parse_rosetta_fragments(str(row['3mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                             .slice_region(row['start'], row['stop'] + 1).sample_top_neighbors(sample)
+                             .slice_region(row['start'] + 1, row['stop'] + 1).sample_top_neighbors(sample)
                              .renumber(edges['ini']).top_limit(edges['end'])))
                 dfs9.append((parse_rosetta_fragments(str(row['9mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                             .slice_region(row['start'], row['stop'] + 1).sample_top_neighbors(sample)
+                             .slice_region(row['start'] + 1, row['stop'] + 1).sample_top_neighbors(sample)
                              .renumber(edges['ini']).top_limit(edges['end'])))
         else:
             for i, row in dfloop.iterrows():
                 # Remember: MASTER match starts with 0!
                 dfs3.append((parse_rosetta_fragments(str(row['3mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                             .slice_region(row['start'], row['stop'] + 1).sample_top_neighbors(sample)
+                             .slice_region(row['start'] + 1, row['stop'] + 1).sample_top_neighbors(sample)
                              .renumber(edges['ini']).top_limit(edges['end'])))
                 dfs9.append((parse_rosetta_fragments(str(row['9mers']), source=f'{row["pdb"]}_{row["chain"]}')
-                             .slice_region(row['start'], row['stop'] + 1).sample_top_neighbors(sample)
+                             .slice_region(row['start'] + 1, row['stop'] + 1).sample_top_neighbors(sample)
                              .renumber(edges['ini']).top_limit(edges['end'])))
 
         # Merge Fragments
@@ -460,3 +457,5 @@ class loopgroup_master( Node ):
     #     if int(name1[1]) == int(name2[1]) - 1:
     #         return True
     #     return False
+
+

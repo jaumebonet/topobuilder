@@ -91,7 +91,7 @@ class fragment_maker( Node ):
         if self.protocol == 'loop_master':
             data['files'] = self.loop_master_protocol(case, folders)
         if self.protocol == 'loopgroup_master':
-            data['files'] = self.loop_master_protocol(case, folders)
+            data['files'] = self.loopgroup_master_protocol(case, folders)
 
         # Store data
         case.data['metadata']['fragments'] = data
@@ -109,6 +109,36 @@ class fragment_maker( Node ):
         if lf is None:
             raise NodeMissingError('Data that should be loaded through loop_master is not found.')
 
+        for i, loop in enumerate(lf):
+            if i == 0:
+                ff3 = parse_rosetta_fragments(loop['fragfiles'][0])
+                ff9 = parse_rosetta_fragments(loop['fragfiles'][1])
+                df3 = [pd.read_csv(str(loop['fragfiles'][0]) + '.csv'), ]
+                df9 = [pd.read_csv(str(loop['fragfiles'][1]) + '.csv'), ]
+            else:
+                df3.append(pd.read_csv(str(loop['fragfiles'][0]) + '.csv'))
+                df9.append(pd.read_csv(str(loop['fragfiles'][1]) + '.csv'))
+                ff3 = ff3.add_fragments(parse_rosetta_fragments(loop['fragfiles'][0]), ini=int(loop['edges']['ini']), how='append')
+                ff9 = ff9.add_fragments(parse_rosetta_fragments(loop['fragfiles'][1]), ini=int(loop['edges']['ini']), how='append')
+
+        TButil.plot_fragment_templates(self.log, pd.concat(df3), pd.concat(df9), folders.joinpath('template_fragment_profile'))
+
+        small_file = write_rosetta_fragments(ff3.top_limit(lf[-1]['edges']['end']), prefix=folders.joinpath('small'), strict=True)
+        self.log.info(f'Writing small fragment file: {small_file}\n')
+        large_file = write_rosetta_fragments(ff9.top_limit(lf[-1]['edges']['end']), prefix=folders.joinpath('large'), strict=True)
+        self.log.info(f'Writing large fragment files: {large_file}\n')
+
+        return small_file, large_file
+
+    def loopgroup_master_protocol( self, case: Case, folders: Path ) -> Tuple[str, str]:
+        """
+        """
+        lf = case['metadata.loop_fragments']
+        self.log.debug(lf)
+        if lf is None:
+            raise NodeMissingError('Data that should be loaded through loop_master is not found.')
+        self.log.debug('LOOPGROUP')
+        self.log.debug(lf)
         for i, loop in enumerate(lf):
             if i == 0:
                 ff3 = parse_rosetta_fragments(loop['fragfiles'][0])
