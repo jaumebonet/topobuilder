@@ -129,9 +129,6 @@ class loopgroup_master( Node ):
         # Global step distance
         loop_step = kase.cast_absolute()['configuration.defaults.distance.loop_step']
 
-        self.log.debug('STEPS HERE')
-        self.log.debug(self.steps)
-
         # Output keys
         kase.data.setdefault('metadata', {}).setdefault('loop_fragments', [])
         kase.data.setdefault('metadata', {}).setdefault('loop_lengths', [])
@@ -143,7 +140,7 @@ class loopgroup_master( Node ):
         start = 1
 
         for i, (group, infos) in enumerate(self.steps.items()):
-            self.log.info(f'Search at group {group}')
+            self.log.info(f'Search at: {group}')
 
             # 1. Make folders and files
             wfolder = folders.joinpath(f'loopgroup{i + 1:02d}')
@@ -151,15 +148,19 @@ class loopgroup_master( Node ):
             outfile = wfolder.joinpath(f'loopgroup_master.iter{i + 1:02d}.pdb')
             outfilePDS = wfolder.joinpath(f'loopgroup_master.iter{i + 1:02d}.pds')
             masfile = outfile.with_suffix('.master')
-            checkpoint = wfolder.joinpath('checkpoint.json')
 
-            # 2. Check if checkpoint exists, retrieve and skip
-            reload = TButil.checkpoint_in(self.log, checkpoint)
-            if reload is not None:
-                kase.data['metadata']['loop_fragments'].append(reload)
-                kase.data['metadata']['loop_lengths'].append(int(reload['edges']['loop']))
-                start += (int(reload['edges']['sse1']) + int(reload['edges']['loop']))
-                continue
+            gr = self.steps[f'group{i + 1:02d}'][-1].split(';')
+            gr = [int(g) for g in gr if g != 'x']
+            for g in gr:
+                checkpoint = wfolder.joinpath(f'loop{g:02d}/checkpoint.json')
+                # 2. Check if checkpoint exists, retrieve and skip
+                reload = TButil.checkpoint_in(self.log, checkpoint)
+                if reload is not None:
+                    self.log.debug(f'Reloading loopgroup{i + 1:02d} with loop{g:02d}')
+                    kase.data['metadata']['loop_fragments'].append(reload)
+                    kase.data['metadata']['loop_lengths'].append(int(reload['edges']['loop']))
+                    start += (int(reload['edges']['sse1']) + int(reload['edges']['loop']))
+                    continue
 
             # 3. Check hairpin
             # Get SSEs and identifiers
@@ -229,7 +230,6 @@ class loopgroup_master( Node ):
                 # 7. Retrieve MASTER data
                 df_container = self.process_master_data(masfile, infos[0], infos[1], infos[2])
 
-                loop_datas = []
                 for indx in list(df_container.order.drop_duplicates()):
                     dfloop = df_container[df_container.order == indx]
                     sse1l, loopl, sse2l = lengths[i], int(dfloop['loop_length'].values[0]), lengths[i + 1]
@@ -240,7 +240,7 @@ class loopgroup_master( Node ):
                     self.log.debug(dfloop.to_string())
 
                     # 8. Bring and Combine fragments from the different sources.
-                    loop_data, nfolder = self.make_fragment_files(dfloop, edges, masfile, wfolder, no_loop=True)
+                    loop_data, nfolder = self.make_fragment_files(dfloop, edges, masfile, no_loop=True)
                     loop_data['match_count'] += match_count
 
                     # 9. Save data in the Case
@@ -249,11 +249,8 @@ class loopgroup_master( Node ):
                     start += (sse1l + loopl)
 
                     # 10. Checkpoint save
-                    #checkpoint = nfolder.joinpath('checkpoint.json')
-                    loop_datas.append(loop_data)
-
-                TButil.checkpoint_out(self.log, checkpoint, loop_datas)
-
+                    checkpoint = nfolder.joinpath('checkpoint.json')
+                    TButil.checkpoint_out(self.log, checkpoint, loop_data)
         return kase
 
     def get_fragfiles( self ) -> pd.DataFrame:
@@ -331,11 +328,7 @@ class loopgroup_master( Node ):
             self.log.info(f'Current jump is {pname[0], pname[1]} with {k}')
             dfloop_copy[['abego', 'loop', 'loop_length', 'start', 'stop']] = dfloop_copy.apply(cutter, num=k, axis=1, result_type='expand')
             dfloop_copy = dfloop_copy.iloc[:self.top_loops]
-            self.log.debug('LOOP LENTS')
-            self.log.debug(dfloop_copy['loop_length'])
             dfloop_copy['length_count'] = dfloop_copy.loop_length.map(dfloop_copy.loop_length.value_counts())
-            self.log.debug('LOOP LENTS')
-            self.log.debug(dfloop_copy['length_count'])
             dfloop_copy.drop(columns=['pds_path']).to_csv(masfile.with_suffix('.all.csv'), index=False)
             finaldf = dfloop_copy.sort_values('rmsd').drop_duplicates(['loop'])
 
@@ -380,7 +373,7 @@ class loopgroup_master( Node ):
     #     df.to_csv(masfile.with_suffix('.csv'), index=False)
     #     return df
 
-    def make_fragment_files( self, dfloop: pd.DataFrame, edges: Dict, masfile: Path, wfolder: Path, no_loop: Optional[bool] = True ) -> Dict:
+    def make_fragment_files( self, dfloop: pd.DataFrame, edges: Dict, masfile: Path, no_loop: Optional[bool] = True ) -> Dict:
         """Combin the fragments from the different matches.
         """
         data = {'loop_length': int(dfloop.iloc[0]['loop_length']), 'abego': list(dfloop['loop'].values),
@@ -420,11 +413,8 @@ class loopgroup_master( Node ):
         # set up
         lord = int(dfloop.order.drop_duplicates().values[0])
         nfolder = masfile.parent.absolute().joinpath(f'loop{int(lord):02d}')
-        self.log.debug(str(nfolder))
         nfolder.mkdir(parents=True, exist_ok=True)
         masfile2 = str(nfolder.joinpath(f'jump{int(lord):02d}'))
-
-        self.log.debug(str(masfile2))
 
         self.log.debug('Writing 3mers fragfile\n')
         #data['fragfiles'].append(write_rosetta_fragments(dfs3all, prefix=str(masfile.with_suffix('')), strict=True))
@@ -457,5 +447,3 @@ class loopgroup_master( Node ):
     #     if int(name1[1]) == int(name2[1]) - 1:
     #         return True
     #     return False
-
-
