@@ -78,7 +78,8 @@ class imaster( Node ):
                   bin: Optional[str] = 'mid',
                   step: Optional[int] = None,
                   subsampling: Optional[int] = None,
-                  corrections: Optional[Dict] = dict() ):
+                  corrections: Optional[Dict] = dict(),
+                  correction_check: Optional[bool] = True ):
         super(imaster, self).__init__(tag)
 
         #self.cases = cases
@@ -87,6 +88,7 @@ class imaster( Node ):
         self.step = step
         self.subsampling = subsampling
         self.corrections = corrections if TBcore.get_option('system', 'jupyter') else {}
+        self.correction_check = correction_check
 
 
     def single_check( self, dummy: Dict ) -> Dict:
@@ -128,7 +130,7 @@ class imaster( Node ):
         steps = [steps[self.step], ] if self.step is not None and TBcore.get_option('system', 'jupyter') else steps
 
         # Work by layers
-        data_prev = None
+        data_prev, corr_prev = None, None
         done_l = set()
         for i, step in enumerate(steps):
             # Step working directory
@@ -176,7 +178,8 @@ class imaster( Node ):
             run(createpds, stdout=DEVNULL)
             masters = TButil.master_best_each(self.log, query.with_suffix('.pds'), stepfolder.joinpath('_master'), self.rmsd)
             data = self.submit_searches(masters, stepfolder, current_case_file, '.'.join([x['id'] for x in sses]))
-            data = self.calc_corrections(data, kase, set(data['layers']), done_l, extras, rules, bin=self.bin, data_prev=data_prev)
+            data = self.calc_corrections(data, kase, set(data['layers']), done_l, extras, rules, bin=self.bin, data_prev=data_prev, corr_prev=corr_prev)
+            corr_prev = data['corrections']
             data_prev = pd.read_csv(stepfolder.joinpath('geometry.csv'))
 
             kase.data['metadata']['imaster'].setdefault('step{:02d}'.format(i + 1), data)
@@ -209,7 +212,7 @@ class imaster( Node ):
 
     def calc_corrections( self, data: Dict, case: Case, qlayers: Set, dlayers: Set,
                           extras: pd.DataFrame, rules: list, bin: Optional[str] = 'mid',
-                          data_prev: Optional[Dict] = None) -> Dict:
+                          data_prev: Optional[Dict] = None, corr_prev: Optional[Dict] = None) -> Dict:
         """
         """
         tocorrect = qlayers.difference(dlayers)
@@ -237,22 +240,23 @@ class imaster( Node ):
         df = pd.read_csv(data['stats'])
 
         # Correct based on the previous orientations.
-        if toreference is not None:
-            df_prev = data_prev[data_prev.layer == toreference]
-            dfss = df[(df.sse.isin(df_prev.sse)) & (df.layer.isin(df_prev.layer))]
-            for a in ['angles_layer', 'angles_side']:
-                m_prev = np.mean([abs(r)/r for r in df_prev[a].values])
-                if m_prev != 0.: m_prev = abs(m_prev)/m_prev
-                m_ss   = np.mean([abs(r)/r for r in dfss[a].values])
-                if m_ss != 0.: m_ss = abs(m_ss)/m_ss
-
-                if m_ss != 0. and m_prev != 0.:
-                    sign_flip = True if m_ss != m_prev else False
-                else:
+        if self.correction_check == True: 
+            if toreference is not None:
+                df_prev = data_prev[data_prev.layer == toreference]
+                dfss    = df[(df.sse.isin(df_prev.sse)) & (df.layer.isin(df_prev.layer))]
+                for a in ['angles_layer', 'angles_side']:
                     sign_flip = False
-                if sign_flip:
-                    df[df.layer == tocorrect].loc[:, a] *= -1.
-                    self.log.debug(f'Layers current {tocorrect}, previous {toreference} - sign flip: {a}, with value {m_ss} vs. {m_prev}')
+                    m_prev = np.mean([abs(r)/r for r in df_prev[a].values])
+                    if m_prev != 0.: m_prev = abs(m_prev)/m_prev
+                    m_ss   = np.mean([abs(r)/r for r in dfss[a].values])
+                    if m_ss != 0.: m_ss = abs(m_ss)/m_ss
+
+                    #if m_ss != 0. and m_prev != 0.:
+                    if m_ss != m_prev: sign_flip = True
+
+                    if sign_flip:
+                        df[df.layer == tocorrect].loc[:, a] *= -1.
+                        self.log.debug(f'{a}: layers current {tocorrect}, previous {toreference} - sign flip: {a}, with value {m_ss} vs. {m_prev}')
 
         df = df.assign(bin=pd.cut(df['rmsd'], bins=[0, 2, 2.5, 3, 5], labels=bins))
         bin_sizes = df.groupby('bin').count().match.values
@@ -309,6 +313,24 @@ class imaster( Node ):
                     self.log.debug('Mode correction approach.\n')
                     data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
 
+        if toreference is not None:
+            if case.get_type_for_layer(toreference) == 'E' and case.get_type_for_layer(tocorrect) == 'E' and corr_prev is not None:
+                self.log.info('The 2 consecutive layers are of type E. Re-checking for correct layer angles automatically.')
+                sses1 = corr_prev.keys()
+                sses2 = data['corrections'].keys()
+                for sse1 in sses1:
+                    for sse2 in sses2:
+                        self.log.debug(f'{sse1} vs {sse2}')
+                        if sse1[1] == sse2[1] and sse1[0] != sse2[0]:
+                            self.log.debug(f'Comparing {sse1} against {sse2}')
+                            sse1_tx   = corr_prev[sse1]['tilt']['x']
+                            sse1_norm = abs(sse1_tx)/sse1_tx
+                            sse2_tx   = data['corrections'][sse2]['tilt']['x']
+                            sse2_norm = abs(sse2_tx)/sse2_tx
+                            if sse1_norm != sse2_norm:
+                                self.log.debug(f'Re-correcting {sse2} tilt.')
+                                data['corrections'][sse2]['tilt']['x'] *= -1.
+        
         self.log.notice(f'Found corrections {data["corrections"]}\n')
         return data
 
