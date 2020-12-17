@@ -138,8 +138,6 @@ class fragment_maker( Node ):
         if lf is None:
             raise NodeMissingError('Data that should be loaded through loop_master is not found.')
         for i, loop in enumerate(lf):
-            self.log.debug('HERE')
-            self.log.debug(loop)
             if i == 0:
                 ff3 = parse_rosetta_fragments(loop['fragfiles'][0])
                 ff9 = parse_rosetta_fragments(loop['fragfiles'][1])
