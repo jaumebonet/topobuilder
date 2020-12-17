@@ -137,9 +137,9 @@ class fragment_maker( Node ):
         self.log.debug(lf)
         if lf is None:
             raise NodeMissingError('Data that should be loaded through loop_master is not found.')
-        self.log.debug('LOOPGROUP')
-        self.log.debug(lf)
         for i, loop in enumerate(lf):
+            self.log.debug('HERE')
+            self.log.debug(loop)
             if i == 0:
                 ff3 = parse_rosetta_fragments(loop['fragfiles'][0])
                 ff9 = parse_rosetta_fragments(loop['fragfiles'][1])
@@ -153,9 +153,9 @@ class fragment_maker( Node ):
 
         TButil.plot_fragment_templates(self.log, pd.concat(df3), pd.concat(df9), folders.joinpath('template_fragment_profile'))
 
-        small_file = write_rosetta_fragments(ff3.top_limit(lf[-1]['edges']['end']), prefix=folders.joinpath('small'), strict=True)
+        small_file = write_rosetta_fragments(ff3.top_limit(lf[-1]['edges']['end'] - 3), prefix=folders.joinpath('small'), strict=True)
         self.log.info(f'Writing small fragment file: {small_file}\n')
-        large_file = write_rosetta_fragments(ff9.top_limit(lf[-1]['edges']['end']), prefix=folders.joinpath('large'), strict=True)
+        large_file = write_rosetta_fragments(ff9.top_limit(lf[-1]['edges']['end'] - 3), prefix=folders.joinpath('large'), strict=True)
         self.log.info(f'Writing large fragment files: {large_file}\n')
 
         return small_file, large_file

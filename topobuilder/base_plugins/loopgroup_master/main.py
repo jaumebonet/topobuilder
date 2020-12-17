@@ -322,14 +322,18 @@ class loopgroup_master( Node ):
 
         container = []
         for k, (pname, llen, lord) in enumerate(zip(pnames, llens, lorder)):
-            dfloop_copy = dfloop.copy()
             if lord is 'x': # skip regions that are not of interest
                 continue
-            self.log.info(f'Current jump is {pname[0], pname[1]} with {k}')
+            # set up
+            nfolder = masfile.parent.absolute().joinpath(f'loop{int(lord):02d}')
+            nfolder.mkdir(parents=True, exist_ok=True)
+            masfile2 = str(nfolder.joinpath(f'jump{int(lord):02d}'))
+
+            dfloop_copy = dfloop.copy()
+            self.log.info(f'Current jump is {pname[0], pname[1]} of order {lord} located at {k}')
             dfloop_copy[['abego', 'loop', 'loop_length', 'start', 'stop']] = dfloop_copy.apply(cutter, num=k, axis=1, result_type='expand')
             dfloop_copy = dfloop_copy.iloc[:self.top_loops]
             dfloop_copy['length_count'] = dfloop_copy.loop_length.map(dfloop_copy.loop_length.value_counts())
-            dfloop_copy.drop(columns=['pds_path']).to_csv(masfile.with_suffix('.all.csv'), index=False)
             finaldf = dfloop_copy.sort_values('rmsd').drop_duplicates(['loop'])
 
             #pick = 0
@@ -339,14 +343,16 @@ class loopgroup_master( Node ):
             pick = finaldf[finaldf['length_count'] == finaldf['length_count'].max()]['loop_length'].min()
             finaldf = finaldf[finaldf['loop_length'] == pick]
 
-            TBPlot.plot_loop_length_distribution(self.log, dfloop_copy, pick, masfile.with_suffix(''), f'loop {pname[0]} <-> {pname[1]}')
+            TBPlot.plot_loop_length_distribution(self.log, dfloop_copy, pick, Path(masfile2), f'loop {pname[0]} <-> {pname[1]}')
 
             df = finaldf.drop(columns=['pds_path'])
             df = df.assign(order=[int(lord)]*len(df))
-            masfile2 = str(masfile) + f'.jump{int(lord):02d}.csv'
-            df.to_csv(masfile2, index=False)
+            df.to_csv(masfile2 + '.csv', index=False)
             container.append(df)
-        return pd.concat(container).sort_values('order')
+
+        df = pd.concat(container).sort_values('order')
+        df.to_csv(masfile.with_suffix('.all.csv'), index=False)
+        return df
 
     # def process_master_data_no_gap( self, masfile: Path, name1: str, name2: str) -> pd.DataFrame:
     #     """Get length data from the MASTER matches.
@@ -430,7 +436,7 @@ class loopgroup_master( Node ):
                               'aa', 'sse', 'phi', 'psi', 'omega']).to_csv(data['fragfiles'][0] + '.csv', index=False)
         dfs9all.drop(columns=['pdb', 'frame', 'neighbors', 'neighbor',
                               'aa', 'sse', 'phi', 'psi', 'omega']).to_csv(data['fragfiles'][1] + '.csv', index=False)
-        imageprefix = masfile.with_suffix('.fragprofile')
+        imageprefix = Path(masfile2).with_suffix('.fragprofile')
         TBPlot.plot_fragment_templates(self.log, dfs3all, dfs9all, imageprefix)
 
         return data, nfolder
