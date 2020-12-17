@@ -306,7 +306,7 @@ class loopgroup_master( Node ):
             match = row['match']
             # MASTER starts match count at 0!
             loop = row['abego'][match[num][1] + 1: match[num + 1][0]]
-            return row['abego'][match[num][0] : match[num + 1][1] + 1], loop, len(loop), int(match[num][0]), int(match[num + 1][1] + 1)
+            return row['abego'][match[num][0] : match[num + 1][1] + 1], loop, len(loop), int(match[num][0]), int(match[num + 1][1])
 
         if masfile.with_suffix('.csv').is_file():
             df = pd.read_csv(masfile.with_suffix('.csv'))
