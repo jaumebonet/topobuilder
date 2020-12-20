@@ -395,11 +395,11 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True,
 
     protocols = [textwrap.dedent("""\
     <Add mover="ssse_cstdes" />
+    <Add mover="ssse_cstdes_cart" />
     <Add mover="spose_cstdes" />
     <Add mover="cst_cstdes" />
     <Add mover="design_cstdes" />
     <Add mover="rm_cstdes" />
-    <Add mover="ssse_cstdes_cart" />
     <Add mover="cst_cstrel" />
     <Add mover="makeFrags_ffd" />
     <Add mover="close_loops" />
