@@ -74,6 +74,7 @@ class imaster( Node ):
     VERSION = 'v1.0'
 
     def __init__( self, tag: int,
+                  correctives:  Optional[Dict] = {'rotate': ['x',], 'translate': ['y',]},
                   rmsd: Optional[float] = 5.0,
                   bin: Optional[str] = 'mid',
                   step: Optional[int] = None,
@@ -83,6 +84,7 @@ class imaster( Node ):
         super(imaster, self).__init__(tag)
 
         #self.cases = cases
+        self.correctives = correctives
         self.rmsd = rmsd
         self.bin = bin
         self.step = step
@@ -240,7 +242,7 @@ class imaster( Node ):
         df = pd.read_csv(data['stats'])
 
         # Correct based on the previous orientations.
-        if self.correction_check == True: 
+        if self.correction_check == True:
             if toreference is not None:
                 df_prev = data_prev[data_prev.layer == toreference]
                 dfss    = df[(df.sse.isin(df_prev.sse)) & (df.layer.isin(df_prev.layer))]
@@ -330,7 +332,7 @@ class imaster( Node ):
                             if sse1_norm != sse2_norm:
                                 self.log.debug(f'Re-correcting {sse2} tilt.')
                                 data['corrections'][sse2]['tilt']['x'] *= -1.
-        
+
         self.log.notice(f'Found corrections {data["corrections"]}\n')
         return data
 
@@ -349,25 +351,63 @@ class imaster( Node ):
             TButil.plot_geometric_distributions(self.log, df[df['layer'] == layer], Path(wdir).joinpath(ofile))
 
         data = {}
-        preref = {'angles_layer': 0, 'angles_side': 0}
+        preref = {'angles_layer': 0, 'angles_side': 0, 'angles_floor': 0,
+                  'points_side': 0, 'points_side': 0, 'points_layer': 0}
         for sse in [x for x in stats.sse.unique() if x.startswith(qlayer)]:
+            # pre-calculations here
             ddf = stats[(stats['sse'] == sse)]
             ddx = extras[(extras['sse'] == sse)]
-            preref['angles_layer'] = -ddx['angles_layer'].values[0]
+            #preref['angles_layer'] = -ddx['angles_layer'].values[0]
             #preref['angles_side'] = -ddx['angles_side'].values[0]
+            #preref['angles_floor'] = -ddx['angles_floor'].values[0]
+
+            d_tilt, d_trans = {}, {}
+            for key, val in self.correctives.items():
+                if key == 'rotate':
+                    for v in val:
+                        if v == 'x':
+                            preref['angles_layer'] = -ddx['angles_layer'].values[0]
+                            d_tilt[v] = ddf[ddf['measure'] == 'angles_layer'][bin].values[0] + preref['angles_layer']
+                        elif v == 'y':
+                            preref['angles_floor'] = -ddx['angles_floor'].values[0]
+                            d_tilt[v] = ddf[ddf['measure'] == 'angles_floor'][bin].values[0] + preref['angles_floor']
+                        elif v == 'z':
+                            preref['angles_side'] = -ddx['angles_side'].values[0]
+                            d_tilt[v] = ddf[ddf['measure'] == 'angles_side'][bin].values[0] + preref['angles_side']
+                        else:
+                            raise NodeOptionsError(f'Unknown rotation for {v}')
+                if key == 'translate':
+                    for v in val:
+                        if v == 'x':
+                            preref['points_side'] = -ddx['points_side'].values[0]
+                            d_trans[v] = ddf[ddf['measure'] == 'points_side'][bin].values[0] + preref['points_side']
+                        elif v == 'y':
+                            preref['points_floor'] = -ddx['points_floor'].values[0]
+                            d_trans[v] = ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor']
+                        elif v == 'z':
+                            pc = ddf[ddf['measure'] == 'points_layer'][bin].values[0] - case['configuration.defaults.distance.ab']
+                            if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
+                                pc = pc * -1
+                            d_trans[v] = pc
+                        else:
+                            raise NodeOptionsError(f'Unknown translation for {v}')
+
+            data.setdefault(sse, {}).setdefault('tilt', d_tilt)
+            data.setdefault(sse, {}).setdefault('coordinates', d_trans)
+
             #data.setdefault(sse, {}).setdefault('tilt', {'x': ddf[ddf['measure'] == 'angles_layer'][bin].values[0] + preref['angles_layer'],
             #                                             'z': ddf[ddf['measure'] == 'angles_side'][bin].values[0] + preref['angles_side']})
-            data.setdefault(sse, {}).setdefault('tilt', {'x': ddf[ddf['measure'] == 'angles_layer'][bin].values[0] + preref['angles_layer'],})
+            #data.setdefault(sse, {}).setdefault('tilt', {'x': ddf[ddf['measure'] == 'angles_layer'][bin].values[0] + preref['angles_layer'],})
             #data.setdefault(sse, {}).setdefault('tilt', {'z': ddf[ddf['measure'] == 'angles_side'][bin].values[0] + preref['angles_side'],})
 
             #pc = ddf[ddf['measure'] == 'points_layer'][bin].values[0] - case['configuration.defaults.distance.ab']
             #if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
             #    pc = pc * -1
-            preref['points_floor'] = -ddx['points_floor'].values[0]
+            #preref['points_floor'] = -ddx['points_floor'].values[0]
 
             #data.setdefault(sse, {}).setdefault('coordinates', {'y': ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor'],
             #                                                    'z': pc})
-            data.setdefault(sse, {}).setdefault('coordinates', {'y': ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor'],})
+            #data.setdefault(sse, {}).setdefault('coordinates', {'y': ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor'],})
             #data.setdefault(sse, {}).setdefault('coordinates', {'z': pc,})
         return data, preref
 
@@ -386,7 +426,8 @@ class imaster( Node ):
             TButil.plot_geometric_distributions(self.log, df[df['layer'] == layer], Path(wdir).joinpath(ofile))
 
         data = {}
-        preref = {'angles_layer': 0, 'angles_side': 0}
+        preref = {'angles_layer': 0, 'angles_side': 0, 'angles_floor': 0,
+                  'points_side': 0, 'points_side': 0, 'points_layer': 0}
 
         angle_side      = stats[(stats['measure'] == 'angles_side')][bin]
         angle_side_sign = (angle_side.abs() / angle_side).values
@@ -401,21 +442,56 @@ class imaster( Node ):
 
             ddf = stats[(stats['sse'] == sse)]
             ddx = extras[(extras['sse'] == sse)]
-            preref['angles_layer'] = -ddx['angles_layer'].values[0]
+            #preref['angles_layer'] = -ddx['angles_layer'].values[0]
             #preref['angles_side'] = -ddx['angles_side'].values[0]
+
+            d_tilt, d_trans = {}, {}
+            for key, val in self.correctives.items():
+                if key == 'rotate':
+                    for v in val:
+                        if v == 'x':
+                            preref['angles_layer'] = -ddx['angles_layer'].values[0]
+                            d_tilt[v] = ddf[ddf['measure'] == 'angles_layer'][bin].values[0] + preref['angles_layer']
+                        elif v == 'y':
+                            preref['angles_floor'] = -ddx['angles_floor'].values[0]
+                            d_tilt[v] = ddf[ddf['measure'] == 'angles_floor'][bin].values[0] + preref['angles_floor']
+                        elif v == 'z':
+                            #preref['angles_side'] = -ddx['angles_side'].values[0]
+                            d_tilt[v] = angle_side_mean * flip
+                        else:
+                            raise NodeOptionsError(f'Unknown rotation for {v}')
+                if key == 'translate':
+                    for v in val:
+                        if v == 'x':
+                            preref['points_side'] = -ddx['points_side'].values[0]
+                            d_trans[v] = ddf[ddf['measure'] == 'points_side'][bin].values[0] + preref['points_side']
+                        elif v == 'y':
+                            preref['points_floor'] = -ddx['points_floor'].values[0]
+                            d_trans[v] = ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor']
+                        elif v == 'z':
+                            pc = ddf[ddf['measure'] == 'points_layer'][bin].values[0] - case['configuration.defaults.distance.ab']
+                            if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
+                                pc = pc * -1
+                            d_trans[v] = pc
+                        else:
+                            raise NodeOptionsError(f'Unknown translation for {v}')
+
+            data.setdefault(sse, {}).setdefault('tilt', d_tilt)
+            data.setdefault(sse, {}).setdefault('coordinates', d_trans)
+
             #data.setdefault(sse, {}).setdefault('tilt', {'x': ddf[ddf['measure'] == 'angles_layer'][bin].values[0] + preref['angles_layer'],
             #                                             'z': angle_side_mean * flip})
-            data.setdefault(sse, {}).setdefault('tilt', {'x': ddf[ddf['measure'] == 'angles_layer'][bin].values[0] + preref['angles_layer'],})
+            #data.setdefault(sse, {}).setdefault('tilt', {'x': ddf[ddf['measure'] == 'angles_layer'][bin].values[0] + preref['angles_layer'],})
             #data.setdefault(sse, {}).setdefault('tilt', {'z': angle_side_mean * flip,})
 
             #pc = ddf[ddf['measure'] == 'points_layer'][bin].values[0] #- case['configuration.defaults.distance.bb_stack']
             #if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
             #   pc = pc * -1
-            preref['points_floor'] = -ddx['points_floor'].values[0]
+            #preref['points_floor'] = -ddx['points_floor'].values[0]
 
             #data.setdefault(sse, {}).setdefault('coordinates', {'y': ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor'],
             #                                                    'z': pc })
-            data.setdefault(sse, {}).setdefault('coordinates', {'y': ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor'],})
+            #data.setdefault(sse, {}).setdefault('coordinates', {'y': ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor'],})
             #data.setdefault(sse, {}).setdefault('coordinates', {'z': pc,})
         return data, preref
 
@@ -423,154 +499,129 @@ class imaster( Node ):
     def nth_layer_correction( self, df: pd.DataFrame, bin: str, wdir: Path, qlayer: str, rlayer: str) -> Dict:
         """
         """
+        def create_network(df, bin, wdir, qlayer, rlayer, corr_type):
+            def reshape(df):
+                def reshape(g):
+                    g = g.drop(columns=['pdb', 'chain']).T
+                    g = g.rename(columns=g.loc['sse'])
+                    g = g.reindex(g.index.drop('sse'))
+                    g = g.assign(bin=g.loc['bin'].values[0])
+                    g = g.assign(N0X=0)
+                    g = g.drop(index='bin')
+                    return g
+                df = df.copy()[['pdb', 'chain', corr_type, 'sse', 'bin']]
+                bins = list(range(-100, 105, 5))
+                labels = list(np.arange(-97.5, 100, 5))
+                df = df.assign(anglebin=pd.cut(df[corr_type], bins=bins, labels=labels))
+                df = df.drop_duplicates(["pdb", "chain", "sse", "bin"])
+                df = df.drop(columns=[corr_type]).groupby(['pdb', 'chain']).apply(reshape)
+                df.index = list(range(df.shape[0]))
+                return df.drop(columns=['bin'])
+            ddf = reshape(df[(df['bin'] == bin) & (df['layer'] == qlayer)])
+            sses = sorted(list(ddf.columns))
+            netwk = []
+            for i in range(0, len(sses) - 1):
+                idx = [sses[i], sses[i + 1]]
+                tmp = pd.DataFrame(ddf.groupby(idx).size()).rename(columns={0: 'count'}).reset_index()
+                netwk.append(tmp.reset_index())
+                netwk[-1][idx[0]] = netwk[-1][idx[0]].apply(lambda v: "_".join([idx[0], str(v)]))
+                netwk[-1][idx[1]] = netwk[-1][idx[1]].apply(lambda v: "_".join([idx[1], str(v)]))
+                netwk[-1] = nx.from_pandas_edgelist(netwk[-1], idx[0], idx[1], ['count'], create_using=nx.DiGraph)
+
+            posk = {}
+            try:
+                network = nx.compose_all(netwk)
+                for n in networkx.nodes:
+                    dd = n.split('_')
+                    posk.setdefault(n, (int(dd[0][1]), float(dd[1])))
+            except Exception:
+                network = nx.Graph()
+
+            # Image summary
+            TButil.plot_angle_network(self.log, network, posk, sses, Path(wdir).joinpath(f'network_{corr_type}_{bin}'))
+            return network
+
         # Report data
         self.make_mode_stats(df, wdir)
         for layer in sorted(df.layer.unique()):
             ofile = 'geometric_distributions_layer{}'.format(layer)
             TButil.plot_geometric_distributions(self.log, df[df['layer'] == layer], Path(wdir).joinpath(ofile))
 
-        # 1. Make network angles layer
-        def reshape(df):
-            def reshape(g):
-                g = g.drop(columns=['pdb', 'chain']).T
-                g = g.rename(columns=g.loc['sse'])
-                g = g.reindex(g.index.drop('sse'))
-                g = g.assign(bin=g.loc['bin'].values[0])
-                g = g.assign(N0X=0)
-                g = g.drop(index='bin')
-                return g
-            df = df.copy()[['pdb', 'chain', 'angles_layer', 'sse', 'bin']]
-            bins = list(range(-100, 105, 5))
-            labels = list(np.arange(-97.5, 100, 5))
-            df = df.assign(anglebin=pd.cut(df['angles_layer'], bins=bins, labels=labels))
-            df = df.drop_duplicates(["pdb", "chain", "sse", "bin"])
-            df = df.drop(columns=['angles_layer']).groupby(['pdb', 'chain']).apply(reshape)
-            df.index = list(range(df.shape[0]))
-            return df.drop(columns=['bin'])
-        ddf = reshape(df[(df['bin'] == bin) & (df['layer'] == qlayer)])
-        sses = sorted(list(ddf.columns))
-        netwk = []
-        for i in range(0, len(sses) - 1):
-            idx = [sses[i], sses[i + 1]]
-            tmp = pd.DataFrame(ddf.groupby(idx).size()).rename(columns={0: 'count'}).reset_index()
-            netwk.append(tmp.reset_index())
-            netwk[-1][idx[0]] = netwk[-1][idx[0]].apply(lambda v: "_".join([idx[0], str(v)]))
-            netwk[-1][idx[1]] = netwk[-1][idx[1]].apply(lambda v: "_".join([idx[1], str(v)]))
-            netwk[-1] = nx.from_pandas_edgelist(netwk[-1], idx[0], idx[1], ['count'], create_using=nx.DiGraph)
-
-        posk = {}
-        try:
-            networkx = nx.compose_all(netwk)
-            for n in networkx.nodes:
-                dd = n.split('_')
-                posk.setdefault(n, (int(dd[0][1]), float(dd[1])))
-        except Exception:
-            networkx = nx.Graph()
-
-        # Image summary
-        TButil.plot_angle_network(self.log, networkx, posk, sses, Path(wdir).joinpath('network_angle_layer_{}'.format(bin)))
-
-        # 2. Make network points floor
-        def reshape(df):
-            def reshape(g):
-                g = g.drop(columns=['pdb', 'chain']).T
-                g = g.rename(columns=g.loc['sse'])
-                g = g.reindex(g.index.drop('sse'))
-                g = g.assign(bin=g.loc['bin'].values[0])
-                g = g.assign(N0X=0)
-                g = g.drop(index='bin')
-                return g
-
-            df = df.copy()[['pdb', 'chain', 'points_floor', 'sse', 'bin']]
-            bins = list(range(-100, 102, 2))
-            labels = list(np.arange(-99, 100, 2))
-            df = df.assign(anglebin=pd.cut(df['points_floor'], bins=bins, labels=labels))
-            df = df.drop_duplicates(["pdb", "chain", "sse", "bin"])
-            df = df.drop(columns=['points_floor']).groupby(['pdb', 'chain']).apply(reshape)
-            df.index = list(range(df.shape[0]))
-            return df.drop(columns=['bin'])
-        ddf = reshape(df[(df['bin'] == bin) & (df['layer'] == qlayer)])
-        sses = sorted(list(ddf.columns))
-        netwk = []
-        for i in range(0, len(sses) - 1):
-            idx = [sses[i], sses[i + 1]]
-            tmp = pd.DataFrame(ddf.groupby(idx).size()).rename(columns={0: 'count'}).reset_index()
-            netwk.append(tmp.reset_index())
-            netwk[-1][idx[0]] = netwk[-1][idx[0]].apply(lambda v: "_".join([idx[0], str(v)]))
-            netwk[-1][idx[1]] = netwk[-1][idx[1]].apply(lambda v: "_".join([idx[1], str(v)]))
-            netwk[-1] = nx.from_pandas_edgelist(netwk[-1], idx[0], idx[1], ['count'], create_using=nx.DiGraph)
-
-        posk = {}
-        try:
-            networky = nx.compose_all(netwk)
-            for n in networky.nodes:
-                dd = n.split('_')
-                posk.setdefault(n, (int(dd[0][1]), float(dd[1])))
-        except Exception:
-            networky = nx.Graph()
-
-        # Image summary
-        TButil.plot_angle_network(self.log, networky, posk, sses, Path(wdir).joinpath('network_points_floor_{}'.format(bin)))
-
-        # 3. Make network angle side
-        def reshape(df):
-            def reshape(g):
-                g = g.drop(columns=['pdb', 'chain']).T
-                g = g.rename(columns=g.loc['sse'])
-                g = g.reindex(g.index.drop('sse'))
-                g = g.assign(bin=g.loc['bin'].values[0])
-                g = g.assign(N0X=0)
-                g = g.drop(index='bin')
-                return g
-
-            df = df.copy()[['pdb', 'chain', 'angles_side', 'sse', 'bin']]
-            bins = list(range(-100, 102, 2))
-            labels = list(np.arange(-99, 100, 2))
-            df = df.assign(anglebin=pd.cut(df['angles_side'], bins=bins, labels=labels))
-            df = df.drop_duplicates(["pdb", "chain", "sse", "bin"])
-            df = df.drop(columns=['angles_side']).groupby(['pdb', 'chain']).apply(reshape)
-            df.index = list(range(df.shape[0]))
-            return df.drop(columns=['bin'])
-        ddf = reshape(df[(df['bin'] == bin) & (df['layer'] == qlayer)])
-        sses = sorted(list(ddf.columns))
-        netwk = []
-        for i in range(0, len(sses) - 1):
-            idx = [sses[i], sses[i + 1]]
-            tmp = pd.DataFrame(ddf.groupby(idx).size()).rename(columns={0: 'count'}).reset_index()
-            netwk.append(tmp.reset_index())
-            netwk[-1][idx[0]] = netwk[-1][idx[0]].apply(lambda v: "_".join([idx[0], str(v)]))
-            netwk[-1][idx[1]] = netwk[-1][idx[1]].apply(lambda v: "_".join([idx[1], str(v)]))
-            netwk[-1] = nx.from_pandas_edgelist(netwk[-1], idx[0], idx[1], ['count'], create_using=nx.DiGraph)
-
-        posk = {}
-        try:
-            networkz = nx.compose_all(netwk)
-            for n in networkz.nodes:
-                dd = n.split('_')
-                posk.setdefault(n, (int(dd[0][1]), float(dd[1])))
-        except Exception:
-            networkz = nx.Graph()
-
-        # Image summary
-        TButil.plot_angle_network(self.log, networkz, posk, sses, Path(wdir).joinpath('network_angles_side_{}'.format(bin)))
-
-        # Return corrections
+        # Rotation networks
         data = {}
-        for x, y, z in zip(nx.dag_longest_path(networkx, 'count', default_weight=0),
-                           nx.dag_longest_path(networky, 'count', default_weight=0),
-                           nx.dag_longest_path(networkz, 'count', default_weight=0)):
-            x = x.split('_')
-            y = y.split('_')
-            z = z.split('_')
-            if x[0] == 'N0X':
-                continue
-            elif x[0].startswith(qlayer):
-                data.setdefault(x[0], {}).setdefault('tilt', {'x': float(x[1])})
-                #data.setdefault(z[0], {}).setdefault('tilt', { 'z': float(z[1])})
-                data.setdefault(y[0], {}).setdefault('coordinates', {'y': float(y[1])})
-                #data.setdefault(z[0], {}).setdefault('tilt', {'x': float(x[1]), 'z': float(z[1])})
-            else:
-                continue
+        d_tilt, d_trans = {}, {}
+        for key, val in self.correctives.items():
+            if key == 'rotate':
+                for v in val:
+                    if v == 'x':
+                        networkrx = create_network(df, bin, wdir, qlayer, rlayer, 'angles_layer')
+                        for e in nx.dag_longest_path(networkrx, 'count', default_weight=0):
+                            e = e.split('_')
+                            if e[0] == 'N0X':
+                                continue
+                            elif e[0].startswith(qlayer):
+                                d_tilt[v] = float(e[1])
+                            else:
+                                continue
+                    elif v == 'y':
+                        networkry = create_network(df, bin, wdir, qlayer, rlayer, 'angles_floor')
+                        for e in nx.dag_longest_path(networkry, 'count', default_weight=0):
+                            e = e.split('_')
+                            if e[0] == 'N0X':
+                                continue
+                            elif e[0].startswith(qlayer):
+                                d_tilt[v] = float(e[1])
+                            else:
+                                continue
+                    elif v == 'z':
+                        networkrz = create_network(df, bin, wdir, qlayer, rlayer, 'angles_side')
+                        for e in nx.dag_longest_path(networkrz, 'count', default_weight=0):
+                            e = e.split('_')
+                            if e[0] == 'N0X':
+                                continue
+                            elif e[0].startswith(qlayer):
+                                d_tilt[v] = float(e[1])
+                            else:
+                                continue
+                    else:
+                        raise NodeOptionsError(f'Unknown rotation for {v}')
+            if key == 'translate':
+                for v in val:
+                    if v == 'x':
+                        networktx = create_network(df, bin, wdir, qlayer, rlayer, 'points_side')
+                        for e in nx.dag_longest_path(networktx, 'count', default_weight=0):
+                            e = e.split('_')
+                            if e[0] == 'N0X':
+                                continue
+                            elif e[0].startswith(qlayer):
+                                d_trans[v] = float(e[1])
+                            else:
+                                continue
+                    elif v == 'y':
+                        networkty = create_network(df, bin, wdir, qlayer, rlayer, 'points_floor')
+                        for e in nx.dag_longest_path(networkty, 'count', default_weight=0):
+                            e = e.split('_')
+                            if e[0] == 'N0X':
+                                continue
+                            elif e[0].startswith(qlayer):
+                                d_trans[v] = float(e[1])
+                            else:
+                                continue
+                    elif v == 'z':
+                        networktz = create_network(df, bin, wdir, qlayer, rlayer, 'points_layer')
+                        for e in nx.dag_longest_path(networktz, 'count', default_weight=0):
+                            e = e.split('_')
+                            if e[0] == 'N0X':
+                                continue
+                            elif e[0].startswith(qlayer):
+                                d_trans[v] = float(e[1])
+                            else:
+                                continue
+                    else:
+                        raise NodeOptionsError(f'Unknown translation for {v}')
+
+        data.setdefault(sse, {}).setdefault('tilt', d_tilt)
+        data.setdefault(sse, {}).setdefault('coordinates', d_trans)
 
         return data
 

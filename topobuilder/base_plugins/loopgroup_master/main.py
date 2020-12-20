@@ -77,6 +77,7 @@ class loopgroup_master( Node ):
                   loop_groups: List,
                   loop_range: Optional[int] = 3,
                   top_loops: Optional[int] = 20,
+                  pick_by: Optional[str] = 'population',
                   #hairpins_2: Optional[bool] = True,
                   rmsd_cut: Optional[float] = 5.0 ):
         super(loopgroup_master, self).__init__(tag)
@@ -84,6 +85,7 @@ class loopgroup_master( Node ):
         self.steps = loop_groups
         self.loop_range = loop_range
         self.top_loops = top_loops
+        self.pick_by = pick_by
         #self.hairpins_2 = hairpins_2
         self.rmsd_cut = rmsd_cut
         self.multiplier = 3 # applied to the top_loops selection to give the file some margin.
@@ -336,12 +338,12 @@ class loopgroup_master( Node ):
             dfloop_copy['length_count'] = dfloop_copy.loop_length.map(dfloop_copy.loop_length.value_counts())
             finaldf = dfloop_copy.sort_values('rmsd').drop_duplicates(['loop'])
 
-            #pick = 0
-            #if hairpin and 2 in finaldf['loop_length'].values:
-            #    pick = 2
-            #else:
-            pick = finaldf[finaldf['length_count'] == finaldf['length_count'].max()]['loop_length'].min()
-            finaldf = finaldf[finaldf['loop_length'] == pick]
+            if self.pick_by == 'minimal':
+                pick = finaldf['loop_length'].min()
+                finaldf = finaldf[finaldf['loop_length'] == pick]
+            else:
+                pick = finaldf[finaldf['length_count'] == finaldf['length_count'].max()]['loop_length'].min()
+                finaldf = finaldf[finaldf['loop_length'] == pick]
 
             TBPlot.plot_loop_length_distribution(self.log, dfloop_copy, pick, Path(masfile2), f'loop {pname[0]} <-> {pname[1]}')
 
