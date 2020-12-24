@@ -298,7 +298,7 @@ class imaster( Node ):
             if case.get_type_for_layer(tocorrect) == 'H':
                 try:
                     self.log.debug('Network correction approach.\n')
-                    data['corrections'] = self.nth_layer_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference)
+                    data['corrections'] = self.nth_layer_correction(df, case, bin, Path(data['stats']).parent, tocorrect, toreference)
                 except:
                      self.log.debug('Mode correction approach.\n')
                      data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
@@ -310,7 +310,7 @@ class imaster( Node ):
             else:
                 try:
                     self.log.debug('Network correction approach.\n')
-                    data['corrections'] = self.nth_layer_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference)
+                    data['corrections'] = self.nth_layer_correction(df, case, bin, Path(data['stats']).parent, tocorrect, toreference)
                 except:
                     self.log.debug('Mode correction approach.\n')
                     data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
@@ -385,7 +385,10 @@ class imaster( Node ):
                             preref['points_floor'] = -ddx['points_floor'].values[0]
                             d_trans[v] = ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor']
                         elif v == 'z':
-                            pc = ddf[ddf['measure'] == 'points_layer'][bin].values[0] - case['configuration.defaults.distance.ab']
+                            self.log.debug('YOU ARE HERE')
+                            self.log.debug(case['configuration.defaults.distance.ab'])
+                            self.log.debug(ddf[ddf['measure'] == 'points_layer'][bin].values[0])
+                            pc = case['configuration.defaults.distance.ab'] - ddf[ddf['measure'] == 'points_layer'][bin].values[0]
                             if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
                                 pc = pc * -1
                             d_trans[v] = pc
@@ -469,9 +472,16 @@ class imaster( Node ):
                             preref['points_floor'] = -ddx['points_floor'].values[0]
                             d_trans[v] = ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor']
                         elif v == 'z':
-                            pc = ddf[ddf['measure'] == 'points_layer'][bin].values[0] - case['configuration.defaults.distance.ab']
+                            self.log.debug('YOU ARE HERE')
+                            self.log.debug(case['configuration.defaults.distance.bb_stack'])
+                            self.log.debug(ddf[ddf['measure'] == 'points_layer'][bin].values[0])
+                            #pc = case['configuration.defaults.distance.bb_stack'] + ddf[ddf['measure'] == 'points_layer'][bin].values[0]
+                            pc = ddf[ddf['measure'] == 'points_layer'][bin].values[0]
+                            self.log.debug(pc)
                             if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
-                                pc = pc * -1
+                                self.log.debug('REVERT')
+                                pc = pc * -1.
+                            self.log.debug(pc)
                             d_trans[v] = pc
                         else:
                             raise NodeOptionsError(f'Unknown translation for {v}')
@@ -496,7 +506,7 @@ class imaster( Node ):
         return data, preref
 
 
-    def nth_layer_correction( self, df: pd.DataFrame, bin: str, wdir: Path, qlayer: str, rlayer: str) -> Dict:
+    def nth_layer_correction( self, df: pd.DataFrame, case: Case, bin: str, wdir: Path, qlayer: str, rlayer: str) -> Dict:
         """
         """
         def create_network(df, bin, wdir, qlayer, rlayer, corr_type):
@@ -614,7 +624,10 @@ class imaster( Node ):
                             if e[0] == 'N0X':
                                 continue
                             elif e[0].startswith(qlayer):
-                                d_trans[v] = float(e[1])
+                                pc = float(e[1]) #- case['configuration.defaults.distance.ab']
+                                if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
+                                    pc = pc * -1.
+                                d_trans[v] = pc
                             else:
                                 continue
                     else:

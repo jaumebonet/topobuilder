@@ -77,8 +77,8 @@ class loopgroup_master( Node ):
                   loop_groups: List,
                   loop_range: Optional[int] = 3,
                   top_loops: Optional[int] = 20,
-                  pick_by: Optional[str] = 'population',
-                  #hairpins_2: Optional[bool] = True,
+                  pick_by: Optional[str] = 'frequency',
+                  hairpins_2: Optional[bool] = True,
                   rmsd_cut: Optional[float] = 5.0 ):
         super(loopgroup_master, self).__init__(tag)
 
@@ -86,7 +86,7 @@ class loopgroup_master( Node ):
         self.loop_range = loop_range
         self.top_loops = top_loops
         self.pick_by = pick_by
-        #self.hairpins_2 = hairpins_2
+        self.hairpins_2 = hairpins_2
         self.rmsd_cut = rmsd_cut
         self.multiplier = 3 # applied to the top_loops selection to give the file some margin.
 
@@ -337,12 +337,17 @@ class loopgroup_master( Node ):
             dfloop_copy = dfloop_copy.iloc[:self.top_loops]
             dfloop_copy['length_count'] = dfloop_copy.loop_length.map(dfloop_copy.loop_length.value_counts())
             finaldf = dfloop_copy.sort_values('rmsd').drop_duplicates(['loop'])
-
+            
+            is_hairpin = self.check_hairpin(pname[0], pname[1])
             if self.pick_by == 'minimal':
                 pick = finaldf['loop_length'].min()
+                if self.hairpins_2 == True and is_hairpin == True:
+                    pick = 2
                 finaldf = finaldf[finaldf['loop_length'] == pick]
             else:
                 pick = finaldf[finaldf['length_count'] == finaldf['length_count'].max()]['loop_length'].min()
+                if self.hairpins_2 == True and is_hairpin == True:
+                    pick = 2
                 finaldf = finaldf[finaldf['loop_length'] == pick]
 
             TBPlot.plot_loop_length_distribution(self.log, dfloop_copy, pick, Path(masfile2), f'loop {pname[0]} <-> {pname[1]}')
@@ -443,15 +448,15 @@ class loopgroup_master( Node ):
 
         return data, nfolder
 
-    # def check_hairpin( self, name1: str, name2: str) -> bool:
-    #     """Check if a SSE-SSE pair is or not a hairpin.
-    #     """
-    #     if name1[0] != name2[0]:
-    #         return False
-    #     if name1[-1] != 'E':
-    #         return False
-    #     if int(name1[1]) == int(name2[1]) + 1:
-    #         return True
-    #     if int(name1[1]) == int(name2[1]) - 1:
-    #         return True
-    #     return False
+    def check_hairpin( self, name1: str, name2: str) -> bool:
+        """Check if a SSE-SSE pair is or not a hairpin.
+        """
+        if name1[0] != name2[0]:
+            return False
+        if name1[-1] != 'E':
+            return False
+        if int(name1[1]) == int(name2[1]) + 1:
+            return True
+        if int(name1[1]) == int(name2[1]) - 1:
+            return True
+        return False
