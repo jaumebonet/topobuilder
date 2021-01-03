@@ -188,7 +188,6 @@ class loop_master( Node ):
                     sse = pd.concat([sse1, sse2], sort=False)
 
                     # 6. Run MASTER
-                    self.log.debug(Path(outfile))
                     #outfilePDS = outfile if outfile is not None else Path(outfile).with_suffix('.pds')
                     self.log.debug(f'FILE {outfilePDS}')
                     # -> make PDS query

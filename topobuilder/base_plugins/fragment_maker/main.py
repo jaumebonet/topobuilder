@@ -105,7 +105,6 @@ class fragment_maker( Node ):
         """
         """
         lf = case['metadata.loop_fragments']
-        self.log.debug(lf)
         if lf is None:
             raise NodeMissingError('Data that should be loaded through loop_master is not found.')
 

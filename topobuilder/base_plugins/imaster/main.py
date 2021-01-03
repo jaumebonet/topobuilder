@@ -80,6 +80,7 @@ class imaster( Node ):
                   step: Optional[int] = None,
                   subsampling: Optional[int] = None,
                   corrections: Optional[Dict] = dict(),
+                  correction_type: Optional[str] = 'network',
                   correction_check: Optional[bool] = True ):
         super(imaster, self).__init__(tag)
 
@@ -90,6 +91,7 @@ class imaster( Node ):
         self.step = step
         self.subsampling = subsampling
         self.corrections = corrections if TBcore.get_option('system', 'jupyter') else {}
+        self.correction_type = correction_type
         self.correction_check = correction_check
 
 
@@ -296,24 +298,44 @@ class imaster( Node ):
                 data['corrections'] = self.first_layer_correction(df, bin, Path(data['stats']).parent)
         elif case.get_type_for_layer(toreference) == 'E':
             if case.get_type_for_layer(tocorrect) == 'H':
-                try:
+                if self.correction_type == 'network':
                     self.log.debug('Network correction approach.\n')
-                    data['corrections'] = self.nth_layer_correction(df, case, bin, Path(data['stats']).parent, tocorrect, toreference)
-                except:
-                     self.log.debug('Mode correction approach.\n')
-                     data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
-            else:
-                data['corrections'], data['prefixes'] = self.beta_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras, rules)
-        elif case.get_type_for_layer(toreference) == 'H':
-            if case.get_type_for_layer(tocorrect) == 'H':
-                data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
-            else:
-                try:
-                    self.log.debug('Network correction approach.\n')
-                    data['corrections'] = self.nth_layer_correction(df, case, bin, Path(data['stats']).parent, tocorrect, toreference)
-                except:
+                    data['corrections'] = self.nth_layer_correction(df, case, bin, Path(data['stats']).parent, tocorrect, toreference, rules)
+                elif self.correction_type == 'mode':
                     self.log.debug('Mode correction approach.\n')
                     data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
+                else:
+                    raise NodeOptionsError(f'Unknown correction type {self.correction_type}')
+            else:
+               #data['corrections'], data['prefixes'] = self.beta_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras, rules)
+               if self.correction_type == 'network':
+                   self.log.debug('Network correction approach.\n')
+                   data['corrections'] = self.nth_layer_correction(df, case, bin, Path(data['stats']).parent, tocorrect, toreference, rules)
+               elif self.correction_type == 'mode':
+                   self.log.debug('Mode correction approach.\n')
+                   data['corrections'], data['prefixes'] = self.beta_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras, rules)
+               else:
+                   raise NodeOptionsError(f'Unknown correction type {self.correction_type}')
+        elif case.get_type_for_layer(toreference) == 'H':
+            if case.get_type_for_layer(tocorrect) == 'H':
+                #data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
+                if self.correction_type == 'network':
+                    self.log.debug('Network correction approach.\n')
+                    data['corrections'] = self.nth_layer_correction(df, case, bin, Path(data['stats']).parent, tocorrect, toreference, rules)
+                elif self.correction_type == 'mode':
+                    self.log.debug('Mode correction approach.\n')
+                    data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
+                else:
+                    raise NodeOptionsError(f'Unknown correction type {self.correction_type}')
+            else:
+                if self.correction_type == 'network':
+                    self.log.debug('Network correction approach.\n')
+                    data['corrections'] = self.nth_layer_correction(df, case, bin, Path(data['stats']).parent, tocorrect, toreference, rules)
+                elif self.correction_type == 'mode':
+                    self.log.debug('Mode correction approach.\n')
+                    data['corrections'], data['prefixes'] = self.alpha_on_beta_correction(df, bin, Path(data['stats']).parent, tocorrect, toreference, case, extras)
+                else:
+                    raise NodeOptionsError(f'Unknown correction type {self.correction_type}')
 
         if toreference is not None:
             if case.get_type_for_layer(toreference) == 'E' and case.get_type_for_layer(tocorrect) == 'E' and corr_prev is not None:
@@ -472,16 +494,10 @@ class imaster( Node ):
                             preref['points_floor'] = -ddx['points_floor'].values[0]
                             d_trans[v] = ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor']
                         elif v == 'z':
-                            self.log.debug('YOU ARE HERE')
-                            self.log.debug(case['configuration.defaults.distance.bb_stack'])
-                            self.log.debug(ddf[ddf['measure'] == 'points_layer'][bin].values[0])
                             #pc = case['configuration.defaults.distance.bb_stack'] + ddf[ddf['measure'] == 'points_layer'][bin].values[0]
                             pc = ddf[ddf['measure'] == 'points_layer'][bin].values[0]
-                            self.log.debug(pc)
                             if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
-                                self.log.debug('REVERT')
                                 pc = pc * -1.
-                            self.log.debug(pc)
                             d_trans[v] = pc
                         else:
                             raise NodeOptionsError(f'Unknown translation for {v}')
@@ -506,7 +522,7 @@ class imaster( Node ):
         return data, preref
 
 
-    def nth_layer_correction( self, df: pd.DataFrame, case: Case, bin: str, wdir: Path, qlayer: str, rlayer: str) -> Dict:
+    def nth_layer_correction( self, df: pd.DataFrame, case: Case, bin: str, wdir: Path, qlayer: str, rlayer: str, rules: list) -> Dict:
         """
         """
         def create_network(df, bin, wdir, qlayer, rlayer, corr_type):
@@ -541,7 +557,7 @@ class imaster( Node ):
             posk = {}
             try:
                 network = nx.compose_all(netwk)
-                for n in networkx.nodes:
+                for n in network.nodes:
                     dd = n.split('_')
                     posk.setdefault(n, (int(dd[0][1]), float(dd[1])))
             except Exception:
@@ -558,8 +574,9 @@ class imaster( Node ):
             TButil.plot_geometric_distributions(self.log, df[df['layer'] == layer], Path(wdir).joinpath(ofile))
 
         # Rotation networks
-        data = {}
-        d_tilt, d_trans = {}, {}
+        keys = df['sse'].drop_duplicates().tolist()
+        d_tilts = {k: {} for k in keys}
+        d_trans = {k: {} for k in keys}
         for key, val in self.correctives.items():
             if key == 'rotate':
                 for v in val:
@@ -570,29 +587,54 @@ class imaster( Node ):
                             if e[0] == 'N0X':
                                 continue
                             elif e[0].startswith(qlayer):
-                                d_tilt[v] = float(e[1])
+                                #d_tilt[v] = float(e[1])
+                                d_tilts[e[0]].update({v: float(e[1])})
                             else:
                                 continue
                     elif v == 'y':
                         networkry = create_network(df, bin, wdir, qlayer, rlayer, 'angles_floor')
                         for e in nx.dag_longest_path(networkry, 'count', default_weight=0):
+                            #d_tilt = {}
                             e = e.split('_')
                             if e[0] == 'N0X':
                                 continue
                             elif e[0].startswith(qlayer):
-                                d_tilt[v] = float(e[1])
+                                #d_tilt[v] = float(e[1])
+                                d_tilts[e[0]].update({v: float(e[1])})
                             else:
                                 continue
                     elif v == 'z':
                         networkrz = create_network(df, bin, wdir, qlayer, rlayer, 'angles_side')
+                        tiltsz, tiltz_sses = [], []
                         for e in nx.dag_longest_path(networkrz, 'count', default_weight=0):
+                            #d_tilt = {}
                             e = e.split('_')
                             if e[0] == 'N0X':
                                 continue
                             elif e[0].startswith(qlayer):
-                                d_tilt[v] = float(e[1])
+                                #d_tilt[v] = float(e[1])
+                                #d_tilts[e[0]].update({v: float(e[1])})
+                                tiltsz.append(float(e[1]))
+                                tiltz_sses.append(e[0])
                             else:
                                 continue
+                        tiltsz_mean = abs(np.mean(tiltsz))
+                        tiltsz_sum  = np.sum(tiltsz)
+                        orienter = tiltsz_sum / abs(tiltsz_sum)
+                        for ii in range(len(tiltz_sses)):
+                            for rule in rules:
+                                if rule[0] == tiltz_sses[ii]:
+                                    if rule[-1] == True:
+                                        if orienter == -1.:
+                                            flip = 1.
+                                        else:
+                                            flip = -1.
+                                    else:
+                                        if orienter == -1.:
+                                            flip = -1.
+                                        else:
+                                            flip = 1.
+                            d_tilts[tiltz_sses[ii]].update({v: float(tiltsz_mean * flip)})
                     else:
                         raise NodeOptionsError(f'Unknown rotation for {v}')
             if key == 'translate':
@@ -600,26 +642,31 @@ class imaster( Node ):
                     if v == 'x':
                         networktx = create_network(df, bin, wdir, qlayer, rlayer, 'points_side')
                         for e in nx.dag_longest_path(networktx, 'count', default_weight=0):
+                            #d_tran = {}
                             e = e.split('_')
                             if e[0] == 'N0X':
                                 continue
                             elif e[0].startswith(qlayer):
-                                d_trans[v] = float(e[1])
+                                #d_tran[v] = float(e[1])
+                                d_trans[e[0]].update({v: float(e[1])})
                             else:
                                 continue
                     elif v == 'y':
                         networkty = create_network(df, bin, wdir, qlayer, rlayer, 'points_floor')
                         for e in nx.dag_longest_path(networkty, 'count', default_weight=0):
+                            #d_tran = {}
                             e = e.split('_')
                             if e[0] == 'N0X':
                                 continue
                             elif e[0].startswith(qlayer):
-                                d_trans[v] = float(e[1])
+                                #d_tran[v] = float(e[1])
+                                d_trans[e[0]].update({v: float(e[1])})
                             else:
                                 continue
                     elif v == 'z':
                         networktz = create_network(df, bin, wdir, qlayer, rlayer, 'points_layer')
                         for e in nx.dag_longest_path(networktz, 'count', default_weight=0):
+                            #d_tran = {}
                             e = e.split('_')
                             if e[0] == 'N0X':
                                 continue
@@ -627,15 +674,19 @@ class imaster( Node ):
                                 pc = float(e[1]) #- case['configuration.defaults.distance.ab']
                                 if ascii_uppercase.index(qlayer) < ascii_uppercase.index(rlayer):
                                     pc = pc * -1.
-                                d_trans[v] = pc
+                                #d_tran[v] = pc
+                                d_trans[e[0]].update({v: float(e[1])})
                             else:
                                 continue
                     else:
                         raise NodeOptionsError(f'Unknown translation for {v}')
-
-        data.setdefault(sse, {}).setdefault('tilt', d_tilt)
-        data.setdefault(sse, {}).setdefault('coordinates', d_trans)
-
+        d_trans = {k: v for k,v in d_trans.items() if v != {}} 
+        d_tilts = {k: v for k,v in d_tilts.items() if v != {}}
+        data = {}
+        for k,v in d_trans.items():
+            data.setdefault(k, {}).setdefault('coordinates', v) 
+        for k,v in d_tilts.items():
+            data.setdefault(k, {}).setdefault('tilt', v)
         return data
 
 
