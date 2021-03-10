@@ -19,7 +19,7 @@ from topobuilder.workflow import Node, NodeDataError, NodeMissingError
 from topobuilder.case import Case
 import topobuilder.core as TBcore
 import topobuilder.utils as TButil
-from rstoolbox.io import parse_rosetta_fragments, write_rosetta_fragments
+from rstoolbox.io import parse_rosetta_fragments, write_rosetta_fragments, write_fragment_sequence_profiles
 
 
 __all__ = ['fragment_maker']
@@ -89,9 +89,14 @@ class fragment_maker( Node ):
 
         # Switch depending on the fragment_protocol
         if self.protocol == 'loop_master':
-            data['files'] = self.loop_master_protocol(case, folders)
+            frags3, frags9, profile = self.loop_master_protocol(case, folders)
+            data['files'] = (frags3, frags9)
+            data['profile'] = profile
         if self.protocol == 'loopgroup_master':
-            data['files'] = self.loopgroup_master_protocol(case, folders)
+            #data['files'] = self.loopgroup_master_protocol(case, folders)
+            frags3, frags9, profile = self.loop_master_protocol(case, folders)
+            data['files'] = (frags3, frags9)
+            data['profile'] = profile
 
         # Store data
         case.data['metadata']['fragments'] = data
@@ -123,11 +128,17 @@ class fragment_maker( Node ):
         TButil.plot_fragment_templates(self.log, pd.concat(df3), pd.concat(df9), folders.joinpath('template_fragment_profile'))
 
         small_file = write_rosetta_fragments(ff3.top_limit(lf[-1]['edges']['end']), prefix=folders.joinpath('small'), strict=True)
-        self.log.info(f'Writing small fragment file: {small_file}\n')
+        self.log.info(f'Writing small fragment file: {small_file}')
         large_file = write_rosetta_fragments(ff9.top_limit(lf[-1]['edges']['end']), prefix=folders.joinpath('large'), strict=True)
-        self.log.info(f'Writing large fragment files: {large_file}\n')
+        self.log.info(f'Writing large fragment files: {large_file}')
 
-        return small_file, large_file
+        # Create fragment design profile
+        profile_file = folders.joinpath('frag_profile.pssm')
+        dfs9all = parse_rosetta_fragments(str(folders)+"/large.200.9mers")
+        write_fragment_sequence_profiles(dfs9all, filename=profile_file)
+        self.log.info(f'Writing sequence profile: {str(folders)+"/large.200.9mers"}')
+
+        return small_file, large_file, profile_file
 
     def loopgroup_master_protocol( self, case: Case, folders: Path ) -> Tuple[str, str]:
         """
@@ -154,4 +165,10 @@ class fragment_maker( Node ):
         large_file = write_rosetta_fragments(ff9.top_limit(lf[-1]['edges']['end'] - 3), prefix=folders.joinpath('large'), strict=True)
         self.log.info(f'Writing large fragment files: {large_file}\n')
 
-        return small_file, large_file
+        # Create fragment design profile
+        profile_file = folders.joinpath('frag_profile.pssm')
+        dfs9all = parse_rosetta_fragments(str(folders)+"/large.200.9mers")
+        write_fragment_sequence_profiles(dfs9all, filename=profile_file)
+        self.log.info(f'Writing sequence profile: {str(folders)+"/large.200.9mers"}')
+
+        return small_file, large_file, profile_file

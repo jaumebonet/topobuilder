@@ -159,8 +159,11 @@ def make_pieces( pdb3d: Frame3D, rules: List[Tuple] ) -> Dict:
             pieces.setdefault(sse_id, {}).setdefault('atoms', segment)
         with SBIcr.on_option_value('structure', 'source', 'auth'):
             if TBcore.get_option('system', 'verbose'):
-                first, last = segment.first_compound.number, segment.last_compound.number
-                sys.stdout.write('PDB:{2} - Range: {0}-{1}\n'.format(first, last, pdb3d.id))
+                try:
+                    first, last = segment.first_compound.number, segment.last_compound.number
+                    sys.stdout.write('PDB:{2} - Range: {0}-{1}\n'.format(first, last, pdb3d.id))
+                except:
+                    continue
     return pieces
 
 

@@ -181,12 +181,13 @@ def make_scripts( log: Logger,
                   hotspots: Optional[List] = None,
                   identifiers: Optional[List] = None,
                   binderfile: Optional[str] = None,
+                  profile: Optional[bool] = False,
                   ) -> Tuple[str, str]:
     """Create the folding and design scripts.
     """
     fld = TButil.rosettascript(TButil.funfoldes(case, motif, binder, hotspots))
     dsg = TButil.rosettascript(TButil.constraint_design(case, natbias, layer_design,
-                                                        motif, binder, hotspots))
+                                                        motif, binder, hotspots, profile))
     wts = TButil.get_weight_patches()
 
     if TBcore.get_option('system', 'jupyter'):

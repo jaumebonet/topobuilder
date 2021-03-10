@@ -79,6 +79,8 @@ class imaster( Node ):
                   bin: Optional[str] = 'mid',
                   step: Optional[int] = None,
                   subsampling: Optional[int] = None,
+                  mirror_beta_twist: Optional[bool] = False,
+                  mirror_beta_shear: Optional[bool] = False,
                   corrections: Optional[Dict] = dict(),
                   correction_type: Optional[str] = 'network',
                   correction_check: Optional[bool] = True ):
@@ -90,6 +92,8 @@ class imaster( Node ):
         self.bin = bin
         self.step = step
         self.subsampling = subsampling
+        self.mirror_beta_twist = mirror_beta_twist
+        self.mirror_beta_shear = mirror_beta_shear
         self.corrections = corrections if TBcore.get_option('system', 'jupyter') else {}
         self.correction_type = correction_type
         self.correction_check = correction_check
@@ -191,6 +195,22 @@ class imaster( Node ):
             kase.data['metadata']['corrections'].append(data['corrections'])
             done_l.update(data['layers'])
             self.corrections.update(data['corrections'])
+
+        # Correct beta twist
+        if self.mirror_beta_twist is True:
+            self.log.debug('Mirroring beta tilt corrections')
+            for dd in kase.data['metadata']['corrections']:
+                for sse in dd.keys():
+                    dd[sse]['tilt']['x'] *= -1.
+
+        if self.mirror_beta_shear is True:
+            self.log.debug('Mirroring beta shear corrections')
+            for dd in kase.data['metadata']['corrections']:
+                for sse in dd.keys():
+                    try:
+                        dd[sse]['tilt']['z'] *= -1.
+                    except:
+                        continue
 
         return kase
 
@@ -338,22 +358,44 @@ class imaster( Node ):
                     raise NodeOptionsError(f'Unknown correction type {self.correction_type}')
 
         if toreference is not None:
-            if case.get_type_for_layer(toreference) == 'E' and case.get_type_for_layer(tocorrect) == 'E' and corr_prev is not None:
-                self.log.info('The 2 consecutive layers are of type E. Re-checking for correct layer angles automatically.')
-                sses1 = corr_prev.keys()
-                sses2 = data['corrections'].keys()
-                for sse1 in sses1:
-                    for sse2 in sses2:
-                        self.log.debug(f'{sse1} vs {sse2}')
-                        if sse1[1] == sse2[1] and sse1[0] != sse2[0]:
-                            self.log.debug(f'Comparing {sse1} against {sse2}')
-                            sse1_tx   = corr_prev[sse1]['tilt']['x']
-                            sse1_norm = abs(sse1_tx)/sse1_tx
-                            sse2_tx   = data['corrections'][sse2]['tilt']['x']
-                            sse2_norm = abs(sse2_tx)/sse2_tx
-                            if sse1_norm != sse2_norm:
-                                self.log.debug(f'Re-correcting {sse2} tilt.')
-                                data['corrections'][sse2]['tilt']['x'] *= -1.
+            if corr_prev is not None:
+                # The case where we have a ab-sandwich, and the helices to adjust
+                # we assume that a helix should be rooted by 2 strands.
+                if case.get_type_for_layer(toreference) == 'E' and case.get_type_for_layer(tocorrect) == 'H':
+                    self.log.info('The consecutive layers are of type EH. Re-checking for correct layer angles automatically.')
+                    sses1 = [k for k,v in corr_prev.items()]
+                    sses2 = data['corrections'].keys()
+                    sse1_cont = []
+                    for ssi in range(0, len(sses1) - 1, 2):
+                        ssei0, ssei1 = sses1[ssi], sses1[ssi + 1]
+                        ssei0_tx  = corr_prev[ssei0]['tilt']['x']
+                        ssei1_tx  = corr_prev[ssei1]['tilt']['x']
+                        sseim_tx  = (ssei0_tx + ssei1_tx) / 2
+                        sse1_cont.append(abs(sseim_tx) / sseim_tx)
+                    for ssi, sse2 in enumerate(sses2):
+                        self.log.debug(f'{sse2} vs beta')
+                        sse2_tx   = data['corrections'][sse2]['tilt']['x']
+                        sse2_norm = abs(sse2_tx)/sse2_tx
+                        if sse1_cont[ssi] != sse2_norm:
+                            self.log.debug(f'Re-correcting {sse2} tilt.')
+                            data['corrections'][sse2]['tilt']['x'] *= -1.
+                # The beta sandwich case
+                if case.get_type_for_layer(toreference) == 'E' and case.get_type_for_layer(tocorrect) == 'E':
+                    self.log.info('The 2 consecutive layers are of type E. Re-checking for correct layer angles automatically.')
+                    sses1 = corr_prev.keys()
+                    sses2 = data['corrections'].keys()
+                    for sse1 in sses1:
+                        for sse2 in sses2:
+                            self.log.debug(f'{sse1} vs {sse2}')
+                            if sse1[1] == sse2[1] and sse1[0] != sse2[0]:
+                                self.log.debug(f'Comparing {sse1} against {sse2}')
+                                sse1_tx   = corr_prev[sse1]['tilt']['x']
+                                sse1_norm = abs(sse1_tx)/sse1_tx
+                                sse2_tx   = data['corrections'][sse2]['tilt']['x']
+                                sse2_norm = abs(sse2_tx)/sse2_tx
+                                if sse1_norm != sse2_norm:
+                                    self.log.debug(f'Re-correcting {sse2} tilt.')
+                                    data['corrections'][sse2]['tilt']['x'] *= -1.
 
         self.log.notice(f'Found corrections {data["corrections"]}\n')
         return data
@@ -385,6 +427,7 @@ class imaster( Node ):
 
             d_tilt, d_trans = {}, {}
             for key, val in self.correctives.items():
+                self.log.debug(key, val)
                 if key == 'rotate':
                     for v in val:
                         if v == 'x':
@@ -397,7 +440,8 @@ class imaster( Node ):
                             preref['angles_side'] = -ddx['angles_side'].values[0]
                             d_tilt[v] = ddf[ddf['measure'] == 'angles_side'][bin].values[0] + preref['angles_side']
                         else:
-                            raise NodeOptionsError(f'Unknown rotation for {v}')
+                            self.log.info(f'Unknown rotation for {v}, not applying anything.')
+                            #raise NodeOptionsError(f'Unknown rotation for {v}')
                 if key == 'translate':
                     for v in val:
                         if v == 'x':
@@ -407,7 +451,6 @@ class imaster( Node ):
                             preref['points_floor'] = -ddx['points_floor'].values[0]
                             d_trans[v] = ddf[ddf['measure'] == 'points_floor'][bin].values[0] + preref['points_floor']
                         elif v == 'z':
-                            self.log.debug('YOU ARE HERE')
                             self.log.debug(case['configuration.defaults.distance.ab'])
                             self.log.debug(ddf[ddf['measure'] == 'points_layer'][bin].values[0])
                             pc = case['configuration.defaults.distance.ab'] - ddf[ddf['measure'] == 'points_layer'][bin].values[0]
@@ -415,7 +458,8 @@ class imaster( Node ):
                                 pc = pc * -1
                             d_trans[v] = pc
                         else:
-                            raise NodeOptionsError(f'Unknown translation for {v}')
+                            self.log.info(f'Unknown translation for {v}, not applying anything.')
+                            #raise NodeOptionsError(f'Unknown translation for {v}')
 
             data.setdefault(sse, {}).setdefault('tilt', d_tilt)
             data.setdefault(sse, {}).setdefault('coordinates', d_trans)
@@ -484,7 +528,8 @@ class imaster( Node ):
                             #preref['angles_side'] = -ddx['angles_side'].values[0]
                             d_tilt[v] = angle_side_mean * flip
                         else:
-                            raise NodeOptionsError(f'Unknown rotation for {v}')
+                            self.log.info(f'Unknown rotation for {v}, not applying anything.')
+                            #raise NodeOptionsError(f'Unknown rotation for {v}')
                 if key == 'translate':
                     for v in val:
                         if v == 'x':
@@ -500,6 +545,7 @@ class imaster( Node ):
                                 pc = pc * -1.
                             d_trans[v] = pc
                         else:
+                            self.log.info(f'Unknown translation for {v}, not applying anything.')
                             raise NodeOptionsError(f'Unknown translation for {v}')
 
             data.setdefault(sse, {}).setdefault('tilt', d_tilt)
@@ -636,7 +682,8 @@ class imaster( Node ):
                                             flip = 1.
                             d_tilts[tiltz_sses[ii]].update({v: float(tiltsz_mean * flip)})
                     else:
-                        raise NodeOptionsError(f'Unknown rotation for {v}')
+                        self.log.info(f'Unknown rotation for {v}, not applying anything.')
+                        #raise NodeOptionsError(f'Unknown rotation for {v}')
             if key == 'translate':
                 for v in val:
                     if v == 'x':
@@ -679,7 +726,8 @@ class imaster( Node ):
                             else:
                                 continue
                     else:
-                        raise NodeOptionsError(f'Unknown translation for {v}')
+                        self.log.info(f'Unknown translation for {v}, not applying anything.')
+                        #raise NodeOptionsError(f'Unknown translation for {v}')
         d_trans = {k: v for k,v in d_trans.items() if v != {}} 
         d_tilts = {k: v for k,v in d_tilts.items() if v != {}}
         data = {}

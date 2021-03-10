@@ -51,12 +51,14 @@ class funfoldes( Node ):
                   nstruct: Optional[int] = 2000,
                   design_nstruct: Optional[int] = 10,
                   natbias: Optional[float] = 2.5,
+                  profile: Optional[bool] = False,
                   layer_design: Optional[bool] = True) -> Case:
         super(funfoldes, self).__init__(tag)
 
         self.nstruct = nstruct
         self.design_nstruct = design_nstruct
         self.natbias = natbias
+        self.profile = profile
         self.layer_design = layer_design
 
     def single_check( self, dummy: Dict ) -> Dict:
@@ -100,7 +102,7 @@ class funfoldes( Node ):
 
         # Make the Folding and Design RScripts
         data = utils.make_scripts(self.log, case, wpaths, data, self.natbias, self.layer_design,
-                                  binders, motif, hotspots, identifiers, bindersfile)
+                                  binders, motif, hotspots, identifiers, bindersfile, self.profile)
 
         # Finish command
         data = utils.commands(case, self.nstruct, self.design_nstruct, data, wpaths)

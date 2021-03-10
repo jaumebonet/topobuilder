@@ -245,6 +245,7 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True,
                        motif: Optional[List] = None,
                        binder: Optional[List] = None,
                        hotspots: Optional[List] = None,
+                       profile: Optional[bool] = False,
                       ) -> ScriptPieces:
     """
     """
@@ -367,6 +368,10 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True,
     """).format(*case['metadata.fragments.files']),
     MOVER_SetSecStructEnergies( 'ssse_cstdes', 'sfxn_cstdes', natbias, case ),
     MOVER_SetSecStructEnergies( 'ssse_cstdes_cart', 'sfxn_cstdes_cart', natbias, case )]
+    if profile is True:
+        movers.append(textwrap.dedent("""\
+        <FavorSequenceProfile name="set_profile" scaling="none" weight="1" pssm="{}" scorefxns="sfxn_cstdes,sfxn_cstdes_cart" />
+        """).format(case['metadata.fragments.profile']))
     if not taskoperations:
         movers.append(textwrap.dedent("""\
         <FastDesign name="design_cstdes" scorefxn="sfxn_cstdes_cart" relaxscript="MonomerDesign2019"
@@ -393,7 +398,11 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True,
         movers.append(textwrap.dedent("""\
         <DeleteRegionMover name="remove_chains" residue_selector="binder"/>"""))
 
-    protocols = [textwrap.dedent("""\
+    protocols = []
+    if profile is True:
+        protocols.append(textwrap.dedent("""\
+        <Add mover="set_profile"/>"""))
+    protocols.append(textwrap.dedent("""\
     <Add mover="ssse_cstdes" />
     <Add mover="ssse_cstdes_cart" />
     <Add mover="spose_cstdes" />
@@ -404,7 +413,7 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True,
     <Add mover="makeFrags_ffd" />
     <Add mover="close_loops" />
     <!--Add filter="rmsd_cstdes" /-->
-    """), ]
+    """))
 
     ld = PROTOCOL_LayerDesign(case) if layer_design else ScriptPieces()
     bf = PROTOCOL_BasicFilters(case, '_cstdes')
@@ -472,10 +481,7 @@ def funfoldes( case: Case,
                 </Nub>
             """).format(','.join(coldspots)))
         movers.append(textwrap.dedent("""</NubInitioMover>"""))
-    elif binder:
-        movers.append( textwrap.dedent("""\
-            <DeleteRegionMover name="remove_chains" residue_selector="binder"/>
-            """) )
+        movers.append(textwrap.dedent("""<DeleteRegionMover name="remove_chains" residue_selector="binder"/>"""))
     elif motif:
         movers.append( textwrap.dedent("""\
             <NubInitioMover name="FFL_ffd" fragments_id="frags" template_motif_selector="piece_ffd" rmsd_threshold="10"

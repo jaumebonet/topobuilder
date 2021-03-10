@@ -387,6 +387,14 @@ class Case( object ):
         """
         return self.cast_absolute()['configuration.flip_first']
 
+    @property
+    def mirror_beta_twist( self ) -> bool:
+        """Do we need to mirror the corrections to get the right twists?
+
+        :return: :class:`bool`
+        """
+        return self.cast_absolute()['configuration.mirror_beta_twist']
+
     def switch_flip_first_to( self, value ) -> C:
         """Change the rule on which SSE to start flipping when applying a topology.
 
