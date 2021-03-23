@@ -115,7 +115,11 @@ def pdb_geometry_from_rules( pdb_file: Union[Path, str, Frame3D],
                              rules: List[Tuple],
                              log: Optional[Logger] = None
                             ) -> pd.DataFrame:
-    """
+    """Calculates the geometry statistic from a PDB.
+
+    :param log: Job Logger.
+    :param pdb_file: The pdb file to calculate the geometry from.
+    :param rules: The rules to be applied.
     """
     if isinstance(pdb_file, (Path, str)):
         pdb_file = Path(pdb_file)
@@ -147,7 +151,10 @@ def pdb_geometry_from_rules( pdb_file: Union[Path, str, Frame3D],
 
 
 def make_pieces( pdb3d: Frame3D, rules: List[Tuple] ) -> Dict:
-    """
+    """Chunks a PDB into its SSE pieces.
+
+    :param pdb3d: PDB stored as a frame.
+    :param rules: The rules to be applied.
     """
     pieces = {}
     for piece in rules:
@@ -168,7 +175,10 @@ def make_pieces( pdb3d: Frame3D, rules: List[Tuple] ) -> Dict:
 
 
 def make_vectors( pieces: Dict, rules: List[Tuple] ) -> Dict:
-    """
+    """Calculates the vectors for a SSE pieces.
+
+    :param pieces: The SSE pieces to calculate the vectors from.
+    :param rules: The rules to be applied.
     """
     for piece in rules:
         sse_id, _, flip = piece
@@ -183,7 +193,9 @@ def make_vectors( pieces: Dict, rules: List[Tuple] ) -> Dict:
 
 
 def make_planes( pieces: Dict ) -> Dict:
-    """
+    """Calculates the planes for SSE pieces.
+
+    :param pieces: The SSE pieces to calculate the vectors from.
     """
     blayers = sorted(set([x[0] for x in pieces if x.endswith('E') and len(x) == 3]))
     hlayers = [x[0] for x in pieces if x.endswith('H') and len(x) == 3]
@@ -221,7 +233,7 @@ def make_planes( pieces: Dict ) -> Dict:
 
 
 def eigenlayers_fix( eign: np.ndarray, vectors: np.ndarray, scape: bool = False ) -> np.ndarray:
-    """
+    """Orients the plane calculate from the pieces.
     """
     eign = eign.copy()
     eign2 = sy.Line(eign[2][0], eign[2][-1])
@@ -253,7 +265,9 @@ def eigenlayers_fix( eign: np.ndarray, vectors: np.ndarray, scape: bool = False 
 
 
 def make_angles_and_distances( pieces: Dict ) -> pd.DataFrame:
-    """
+    """Calculates the angles and distances from the vectors and planes.
+
+    :param pieces: The SSE pieces to calculate the vectors from.
     """
     data = {'sse': [], 'layer': [],
             'angles_layer': [], 'angles_floor': [], 'angles_side': [],
@@ -343,7 +357,13 @@ def reverse_motif( log: Logger,
 
 
 def pick_motif( log: Logger, pdbSTR: Frame3D, selection: List[str], attach: List[str], hotspot: str ) -> Dict:
-    """
+    """Saves the motif from a given PDB.
+
+    :param log: Logger from the calling :class:`.Node` to keep requested verbosity.
+    :param pdbSTR: The PDB to take the motif from.
+    :param selection: Residues to be considered as motif.
+    :param attach: The :term:`SKETCH` part to be employed to add the motif onto.
+    :param hotspot: The hotspot residues on the motif to keep fixed during design.
     """
     # Get the motif segments
     log.info(f'Loading motifs at {",".join(selection)}.')

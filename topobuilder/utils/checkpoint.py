@@ -43,7 +43,7 @@ class GeneralEncoder(json.JSONEncoder):
 
 
 def checkpoint_in( log: Logger, filename: Union[Path, str] ) -> Optional[Dict]:
-    """
+    """Incoming checkpoint.
     """
     if TBcore.get_option('system', 'forced'):
         return None
@@ -63,7 +63,7 @@ def checkpoint_in( log: Logger, filename: Union[Path, str] ) -> Optional[Dict]:
 
 
 def checkpoint_out( log: Logger, filename: Union[Path, str], data: Dict ):
-    """
+    """Dump checkpoint.
     """
     filename = Path(filename)
 

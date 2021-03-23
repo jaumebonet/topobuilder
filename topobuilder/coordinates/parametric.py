@@ -43,7 +43,8 @@ class ParametricStructure( object ):
             self.build()
 
     def build( self ):
-        """
+        """Builds the sturcture, e.g. place the backbone atoms with respect to the
+        secondary structure element specified.
         """
         if self._MONO is None or self._PERIODE is None:
             raise NotImplementedError()

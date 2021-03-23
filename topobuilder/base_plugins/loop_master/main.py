@@ -56,10 +56,11 @@ class loop_master( Node ):
 
     :param loop_range: Expected loop length is calculated from the euclidian distance between two secondary
         structures. This attribute adds a window of ``loop_range`` residues under and over the calculated
-        length.
-    :param top_loops: Number of loops that are selected from the sorted matches to retrieve final loop candidates.
-    :param hairpins_2: When :data:`True`, enforce 2-residue loops on beta hairpins.
-    :param rmsd_cut: Threshold value to include loops as match candidates.
+        length (default: 3).
+    :param top_loops: Number of loops that are selected from the sorted matches to retrieve final
+        loop candidates (default: 20).
+    :param hairpins_2: When :data:`True`, enforce 2-residue loops on beta hairpins (default: True).
+    :param rmsd_cut: Threshold value to include loops as match candidates (default: 5.0).
     :param filter: List of PDB identifiers to use for the search. If nothing is provided, the full database,
         as defined by the ``master.pds`` global option, will be used.
 

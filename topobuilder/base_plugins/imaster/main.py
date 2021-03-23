@@ -61,7 +61,12 @@ class imaster( Node ):
     :param rmsd: RMSD threshold for master search (default: 5.0).
     :param bin: Starting bin for master corrections (default: mid).
     :param step: Path of how the layers are searched for corrections.
+    :param subsampling: Subsampling matches to accelerated calculations.
     :param corrections: File containing the corrections.
+    :param mirror_beta_twist: Invert beta sheet twist (default: False).
+    :param mirror_beta_shear: Invert beta sheet shear between layers (default: False).
+    :param correction_type: Analysis method ['network', 'mode'] to use for corrections (default: 'network').
+    :param correction_check: Check if corrections have been correctly applied across the layers (default: True).
 
     :raises:
         :NodeOptionsError: On **initialization**. If a reserved key is provided as a subname.
@@ -728,11 +733,11 @@ class imaster( Node ):
                     else:
                         self.log.info(f'Unknown translation for {v}, not applying anything.')
                         #raise NodeOptionsError(f'Unknown translation for {v}')
-        d_trans = {k: v for k,v in d_trans.items() if v != {}} 
+        d_trans = {k: v for k,v in d_trans.items() if v != {}}
         d_tilts = {k: v for k,v in d_tilts.items() if v != {}}
         data = {}
         for k,v in d_trans.items():
-            data.setdefault(k, {}).setdefault('coordinates', v) 
+            data.setdefault(k, {}).setdefault('coordinates', v)
         for k,v in d_tilts.items():
             data.setdefault(k, {}).setdefault('tilt', v)
         return data
