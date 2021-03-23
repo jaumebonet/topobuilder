@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -75,7 +76,7 @@ def folder_structure( case: Case ) -> Dict:
             'wts5_patchF': wts5_patch_file,
             'checkpoint': checkpoint        # Path to the Checkpoint file (.json)
             }
-            
+
 
 def build_template_sketch( log: Logger, case: Case, full_file: Union[Path, str] ):
     """Generate the PDB file used as template to fold.

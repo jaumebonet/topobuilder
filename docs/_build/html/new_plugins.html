@@ -159,6 +159,74 @@
             
   <div class="section" id="developing-your-own-new-plugins">
 <span id="new-plugins"></span><h1>Developing Your Own New Plugins<a class="headerlink" href="#developing-your-own-new-plugins" title="Permalink to this headline">¶</a></h1>
+<p>Although the TopoBuilder already contains a lot of useful Plugins, you may wish to create your own
+module with wrapping around other external tools.</p>
+<p>Implementing a plugin by yourself is straightforward and you may want to take a look at the code of
+one of the base plugins to find out how the various plugins are implemented. However, we give a brief
+introduction on what is needed to setup your own plugin.</p>
+<p>Each plugin must be wrapped into a <code class="xref py py-class docutils literal notranslate"><span class="pre">Node</span></code> and two fundamental methods must be implemented:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">single_check()</span></code>:
+This function will do two things. A sanity check on a dummy example input that checks if all
+required information needed was passed, and instantiates the objects to save the calculated data to.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">single_execute()</span></code>:
+This function will actually do the calculation for a single <code class="xref py py-class docutils literal notranslate"><span class="pre">Case</span></code>. Note that multi_execute()
+has not been implemented yet.</p></li>
+</ul>
+<p>Let’s briefly take a look a an example from the make_topology plugin:</p>
+<p>For the <code class="docutils literal notranslate"><span class="pre">single_check()</span></code>, we first create a <code class="xref py py-class docutils literal notranslate"><span class="pre">Case</span></code> from saved dummy data. Then we check if
+the required fields are present within the <code class="xref py py-class docutils literal notranslate"><span class="pre">Case</span></code> data. At the end we create an empty dictionary
+where we will save our calculated data to to pass it on to the next plugin.</p>
+<div class="highlight-python notranslate"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">single_check</span><span class="p">(</span> <span class="bp">self</span><span class="p">,</span> <span class="n">dummy</span><span class="p">:</span> <span class="n">Dict</span> <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+  <span class="n">kase</span> <span class="o">=</span> <span class="n">Case</span><span class="p">(</span><span class="n">dummy</span><span class="p">)</span>
+
+  <span class="c1"># Check what it needs</span>
+  <span class="k">for</span> <span class="n">itag</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">REQUIRED_FIELDS</span><span class="p">:</span>
+      <span class="k">if</span> <span class="n">kase</span><span class="p">[</span><span class="n">itag</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+          <span class="k">raise</span> <span class="n">NodeDataError</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Field &quot;</span><span class="si">{</span><span class="n">itag</span><span class="si">}</span><span class="s1">&quot; is required&#39;</span><span class="p">)</span>
+
+  <span class="c1"># Include keywords</span>
+  <span class="n">kase</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;metadata&#39;</span><span class="p">,</span> <span class="p">{})</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s1">&#39;equivalent_connectivities&#39;</span><span class="p">,</span> <span class="p">[])</span>
+  <span class="k">return</span> <span class="n">kase</span><span class="o">.</span><span class="n">data</span>
+</pre></div>
+</td></tr></table></div>
+<p>For the <code class="docutils literal notranslate"><span class="pre">single_execute()</span></code>, we load the actually current data into a <code class="xref py py-class docutils literal notranslate"><span class="pre">Case</span></code> and do
+our computation, save the data and return it to pass on to the next plugin.</p>
+<div class="highlight-python notranslate"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12</pre></div></td><td class="code"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">single_execute</span><span class="p">(</span> <span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Dict</span> <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">:</span>
+    <span class="n">kase</span> <span class="o">=</span> <span class="n">Case</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+    <span class="n">new_cases</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="c1"># If connectivities are pre-specified, only make those.</span>
+    <span class="k">if</span> <span class="n">kase</span><span class="o">.</span><span class="n">connectivity_count</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">new_cases</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_representatives</span><span class="p">(</span><span class="n">kase</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">representatives</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">new_cases</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">eval_representatives</span><span class="p">(</span>
+                         <span class="bp">self</span><span class="o">.</span><span class="n">explore_connectivities</span><span class="p">(</span><span class="n">kase</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">representatives</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sampling</span><span class="p">))</span>
+    <span class="bp">self</span><span class="o">.</span><span class="n">log</span><span class="o">.</span><span class="n">notice</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;case count: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">new_cases</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">new_cases</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</pre></div>
+</td></tr></table></div>
 </div>
 
 

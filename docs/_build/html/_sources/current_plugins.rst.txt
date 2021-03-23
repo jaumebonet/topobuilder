@@ -9,6 +9,7 @@ Basic Management and Visualization
 ----------------------------------
 
 .. autoclass:: topobuilder.base_plugins.nomenclator.nomenclator
+.. autoclass:: topobuilder.base_plugins.nomenclator.write
 .. autoclass:: topobuilder.base_plugins.plotter.plotter
 
 
@@ -25,6 +26,7 @@ Loop Building and Identification
 --------------------------------
 
 .. autoclass:: topobuilder.base_plugins.loop_master.loop_master
+.. autoclass:: topobuilder.base_plugins.loop_master.loopgroup_master
 
 
 Protein Backbone
