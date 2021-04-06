@@ -15,7 +15,11 @@ import numpy as np
 import pandas as pd
 
 # This Library
-from SBI.structure import PDB, ResidueFrame, Frame3D
+try:
+    from SBI.structure import PDB, ResidueFrame, Frame3D
+except ImportError:
+    pass
+
 
 __all__ = ['ParametricStructure']
 
@@ -39,7 +43,8 @@ class ParametricStructure( object ):
             self.build()
 
     def build( self ):
-        """
+        """Builds the sturcture, e.g. place the backbone atoms with respect to the
+        secondary structure element specified.
         """
         if self._MONO is None or self._PERIODE is None:
             raise NotImplementedError()

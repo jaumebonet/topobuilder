@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -10,81 +11,88 @@
 from typing import List, Union, Dict, Optional
 from pathlib import Path
 import copy
-import sys
+# import sys
 
 # External Libraries
 
 # This Library
 from topobuilder.case import Case
-import topobuilder.core as TBcore
-import topobuilder.utils as TButil
+from topobuilder.workflow import Node, NodeDataError
 
 
-__all__ = ['metadata', 'apply', 'case_apply']
+__all__ = ['corrector']
 
 
-def metadata() -> Dict:
-    """Plugin description.
+class corrector( Node ):
+    """Applies corrections to the placements of the secondary structures in a :term:`FORM`.
 
-    It includes:
+    This affects on placement and angles of the different secondary structures. Corrections are defined through
+    a controlled vocabulary.
 
-    - ``name``: The plugin identifier.
-    - ``Itags``: The metadata tags neccessary to execute.
-    - ``Otags``: The metadata tags generated after a successful execution.
-    - ``Isngl``: Funtion on the expected input connectivity.
-    - ``Osngl``: When :data:`True`, output guarantees single connectivity.
+    .. caution::
+        Structural motifs imported through the :class:`.Node` :class:`.motif_picker` will impose constraints on
+        the way structures can move with respect to each other, thus making some corrections impossible to
+        fulfill.
+
+    .. admonition:: To Developers
+
+        Whenever a plugin has to apply geometric and positional changes to the :term:`FORM`, it should be
+        done through this class.
+
+    :param corrections: Per secondary structure or per layer corrections to be applied.
+
+    :raises:
+        :NodeDataError: On **check**. If the required fields to be executed are not there.
+        :NodeDataError: On **execution**. If the requested corrections do not meet the criteria imposed by the
+            :term:`FORM`.
+
     """
-    def isngl( count ):
-        return True
+    REQUIRED_FIELDS = ('topology.architecture', )
+    RETURNED_FIELDS = ()
+    VERSION = 'v1.0'
 
-    return {'name': 'nomenclator',
-            'Itags': [],
-            'Otags': [],
-            'Isngl': isngl,
-            'Osngl': False}
+    def __init__( self, tag: int,
+                  corrections: Optional[Union[str, Dict, Path, List[Union[str, Path]]]] = None ):
+        super(corrector, self).__init__(tag)
 
+        # Make sure we have a list of corrections.
+        self.corrections = corrections
+        if self.corrections is not None:
+            if not isinstance(self.corrections, list):
+                self.corrections = [self.corrections, ]
+            for i, c in enumerate(self.corrections):
+                if isinstance(c, str):
+                    self.corrections[i] = Path(c)
+        else:
+            self.corrections = []
 
-def apply( cases: List[Case],
-           prtid: int,
-           corrections: Optional[Union[str, Dict, Path, List]] = None,
-           **kwargs ) -> List[Case]:
-    """Apply corrections to the Case.
-    """
-    TButil.plugin_title(__file__, len(cases))
+    def single_check( self, dummy: Dict ) -> Dict:
+        kase = Case(dummy)
 
-    for i, case in enumerate(cases):
-        cases[i] = case_apply(case, corrections)
-        cases[i] = cases[i].set_protocol_done(prtid)
-    return cases
+        # Check what it needs
+        for itag in self.REQUIRED_FIELDS:
+            if kase[itag] is None:
+                raise NodeDataError(f'Field "{itag}" is required')
 
+        # Include what keywords it adds (in this instance, nothing)
+        return kase.data
 
-@TButil.plugin_conditions(metadata())
-def case_apply( case: Case,
-                corrections: Optional[Union[str, Dict, Path, List]] = None
-                ) -> Case:
-    """
-    """
-    kase = Case(case)
+    def single_execute( self, data: Dict ) -> Dict:
+        kase = Case(data)
 
-    # Make sure we have a list of corrections.
-    if corrections is None and case['metadata.corrections'] is None:
-        return kase
-    if corrections is not None:
-        if not isinstance(corrections, list):
-            corrections = [corrections, ]
-        for i, c in enumerate(corrections):
-            if isinstance(c, str):
-                corrections[i] = Path(c)
-    else:
-        corrections = []
+        crr = copy.deepcopy(self.corrections)
 
-    crr = copy.deepcopy(corrections)
-    krr = case['metadata.corrections']
-    if krr is not None:
+        # See if there are extra corrections attached to the case itself
+        krr = kase['metadata.corrections']
+        krr = [] if krr is None else krr
         crr.extend(krr)
 
-    for c in crr:
-        if TBcore.get_option('system', 'verbose'):
-            sys.stdout.write('Applying correction: {0}\n'.format(c))
-        kase = kase.apply_corrections(c)
-    return kase
+        # Apply each set of corrections
+        for c in crr:
+            self.log.info('Applying correction: {0}\n'.format(c))
+            kase = kase.apply_corrections(c)
+
+        self.log.debug(f'Applied a total of {len(crr)} corrections.')
+        self.log.debug(f'{len(krr)} from within the Case definition.')
+        self.log.debug(f'{len(self.corrections)} from protocol-provided data.')
+        return kase.data

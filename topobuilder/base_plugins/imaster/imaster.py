@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -18,6 +19,7 @@ from itertools import cycle
 import topobuilder.utils as TButil
 from topobuilder.case import Case
 from analysis import process_master_geometries
+from rstoolbox.io import parse_master_file
 
 
 def options():
@@ -38,7 +40,7 @@ def main( options ):
     """
     """
     # Load MASTER search data.
-    masterdf = TButil.parse_master_file(options.master, shift_0=True)
+    masterdf = parse_master_file(options.master, shift_0=True)
 
     # Case data
     case = Case(Path(options.case))

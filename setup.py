@@ -2,9 +2,11 @@ import os
 from setuptools import setup, find_packages
 import versioneer
 
+
 def read_file(path):
     with open(os.path.join(os.path.dirname(__file__), path)) as fp:
         return fp.read()
+
 
 setup(
     name='topobuilder',
@@ -29,14 +31,13 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 4 - Beta',
-
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Science/Research',
         'Environment :: Console',
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
         'Operating System :: MacOS',
         'Operating System :: Unix',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
@@ -53,7 +54,7 @@ setup(
 
     install_requires=[x.strip() for x in open('REQUIREMENTS').readlines()],
 
-    packages=find_packages(exclude=['docs', 'demo', 'sphinx-docs']),
+    packages=find_packages(exclude=['docs', 'demo']),
     include_package_data=True,
     package_data={
         'topobuilder': ['REQUIREMENTS', ]

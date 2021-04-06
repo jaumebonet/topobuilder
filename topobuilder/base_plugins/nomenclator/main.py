@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -8,94 +9,92 @@
 """
 # Standard Libraries
 from typing import List, Union, Dict
-import sys
 import copy
 
 # External Libraries
 
 # This Library
 from topobuilder.case import Case
-import topobuilder.core as TBcore
-import topobuilder.utils as TButil
+from topobuilder.workflow import Node, NodeOptionsError, NodeDataError
 
 
-__all__ = ['metadata', 'apply', 'case_apply']
+__all__ = ['nomenclator']
 
 
-def metadata() -> Dict:
-    """Plugin description.
+class nomenclator( Node ):
+    """Alters the ``configuration.name`` of a :class:`.Case` by adding subnames.
 
-    It includes:
+    This affects on the creation of the subfolders where the rest of the :class:`.Pipeline`
+    will be executed.
 
-    - ``name``: The plugin identifier.
-    - ``Itags``: The metadata tags neccessary to execute.
-    - ``Otags``: The metadata tags generated after a successful execution.
-    - ``Isngl``: Funtion on the expected input connectivity.
-    - ``Osngl``: When :data:`True`, output guarantees single connectivity.
+    .. note::
+        On **execution**, the plugin will not append new subnames when those already exist. For example,
+        if ``configuration.name`` is ``1QYS_experiment1_naive`` and ``subnames=['experiment1', 'naive']``,
+        the final ``configuration.name`` will still be ``1QYS_experiment1_naive`` and not
+        ``1QYS_experiment1_naive_experiment1_naive``. This is to avoid folder recursion generation when
+        re-running a previous :class:`.Pipeline`.
+
+    .. caution::
+        There are some keywords that cannot be used as a subname due to them generating their own
+        **first level** subfolders. These keywords are ``architecture``, ``connectivity``, ``images``
+        and ``summary``. Trying to add one of those terms as subname will generate a :class:`.NodeDataError`
+        on **check** time.
+
+    .. admonition:: To Developers
+
+        When developing a new plugin, if it is expected to create new **first level** subfolders, they should
+        be listed in the class attribute :attr:`.nomenclator.RESERVED_KEYWORDS`. See more on how to
+        :ref:`develop your own plugins <make_plugin>`.
+
+    :param subnames: Subnames that will be added to the :class:`.Case` initial name.
+
+    :raises:
+        :NodeOptionsError: On **initialization**. If a reserved key is provided as a subname.
+        :NodeDataError: On **check**. If the required fields to be executed are not there.
+
     """
-    def isngl( count ):
-        return True
+    RESERVED_KEYWORDS = ['architecture', 'connectivity', 'images', 'summary']
+    REQUIRED_FIELDS = ('configuration.name', )
+    RETURNED_FIELDS = ()
+    VERSION = 'v1.0'
 
-    return {'name': 'nomenclator',
-            'Itags': [],
-            'Otags': [],
-            'Isngl': isngl,
-            'Osngl': False}
+    def __init__( self, tag: int, subnames: Union[List[str], str] ):
+        super(nomenclator, self).__init__(tag)
 
+        self.subnames = subnames
+        # Unify subnames behaviour for 1 to N
+        if not isinstance(self.subnames, list):
+            self.subnames = [self.subnames, ]
 
-def apply( cases: List[Case],
-           prtid: int,
-           subnames: Union[str, List[str]],
-           **kwargs ) -> List[Case]:
-    """Add subnames to a list of Case, defining the folder configuration.
+        # Words used as main folders should not be used for subnaming
+        if len(set([x.lower() for x in self.subnames]).intersection(set(self.RESERVED_KEYWORDS))) > 0:
+            raise NodeOptionsError(f'Keywords {self.RESERVED_KEYWORDS} cannot be used for subnaming.')
 
-    :param cases: List of :class:`.Case` to execute.
+    def single_check( self, dummy: Dict ) -> Dict:
+        kase = Case(dummy)
 
-    :return: :func:`list` of :class:`.Case`
-    """
-    TButil.plugin_title(__file__, len(cases))
+        # Check what it needs
+        for itag in self.REQUIRED_FIELDS:
+            if kase[itag] is None:
+                raise NodeDataError(f'Field "{itag}" is required')
 
-    for i, case in enumerate(cases):
-        cases[i] = case_apply(case, subnames)
-        cases[i] = cases[i].set_protocol_done(prtid)
+        # Include what keywords it adds (in this instance, nothing)
+        return kase.data
 
-    return cases
+    def single_execute( self, data: Dict ) -> Dict:
+        kase = Case(data)
 
+        # Check name was not already added.
+        sn = copy.deepcopy(self.subnames)
+        if kase.name.endswith('_'.join(sn)):
+            self.log.notice(f'Seems the subnames {"_".join(sn)} already existed.')
+            self.log.notice('Will NOT re-append.')
+            return kase
 
-@TButil.plugin_conditions(metadata())
-def case_apply( case: Case,
-                subnames: Union[str, List[str]]
-                ) -> Case:
-    """Add subnames to a Case, defining the folder configuration.
+        # Add new names
+        oname = kase.name
+        sn.insert(0, oname)
+        kase.data['configuration']['name'] = '_'.join(sn)
 
-    :param case: Target :class:`.Case`.
-    :param subnames: List of or subname to append.
-
-    :return: :class:`.Case` with ``configuration.name`` modified
-    """
-    kase = Case(case)
-
-    # Unify subnames behaviour for 1 to N
-    if not isinstance(subnames, list):
-        subnames = [subnames, ]
-
-    # Reserved keywords
-    for i, sn in enumerate(subnames):
-        if sn == 'architecture':
-            subnames[i] = kase.architecture_str.replace('.', '')
-
-    # Check name was not already added.
-    sn = copy.deepcopy(subnames)
-    if kase.name.endswith('_'.join(sn)):
-        TButil.plugin_warning('Seems the subnames {} already existed.'.format('_'.join(sn)))
-        TButil.plugin_warning('Will NOT re-append.')
-        return kase
-
-    # Add new names
-    sn.insert(0, kase.name)
-    kase.data['configuration']['name'] = '_'.join(sn)
-
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('Renamed case {} to {}\n'.format(case.name, kase.name))
-
-    return kase
+        self.log.debug(f'Renamed case {oname} to {kase.name}')
+        return kase.data

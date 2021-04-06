@@ -38,7 +38,7 @@ class InteractiveProtocol( object ):
             try:
                 protocol = json.loads("".join([x.strip() for x in open(protocol).readlines()]))
             except json.JSONDecodeError:
-                protocol = yaml.load(open(protocol))
+                protocol = yaml.load(open(protocol), Loader=yaml.Loader)
         self.protocols = protocol
         self.case_count = [0, ] * len(self.protocols)
         self.current = -1

@@ -14,6 +14,7 @@ import sys
 from types import GeneratorType
 
 # External Libraries
+from logbook import Logger
 import numpy as np
 
 # This Library
@@ -41,16 +42,16 @@ class GeneralEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def checkpoint_in( filename: Union[Path, str] ) -> Optional[Dict]:
-    """
+def checkpoint_in( log: Logger, filename: Union[Path, str] ) -> Optional[Dict]:
+    """Incoming checkpoint.
     """
     if TBcore.get_option('system', 'forced'):
         return None
 
     filename = Path(filename)
     if filename.is_file():
-        if TBcore.get_option('system', 'verbose'):
-            sys.stdout.write('CHECKPOINT: Reloading from {}\n'.format(filename))
+
+        log.info(f'CHECKPOINT: Reloading from {filename}\n')
         with Path(filename).open() as fd:
             try:
                 data = json.load(fd)
@@ -61,12 +62,11 @@ def checkpoint_in( filename: Union[Path, str] ) -> Optional[Dict]:
     return None
 
 
-def checkpoint_out( filename: Union[Path, str], data: Dict ):
-    """
+def checkpoint_out( log: Logger, filename: Union[Path, str], data: Dict ):
+    """Dump checkpoint.
     """
     filename = Path(filename)
 
-    if TBcore.get_option('system', 'verbose'):
-        sys.stdout.write('CHECKPOINT: Creating at {}\n'.format(filename))
+    log.info(f'CHECKPOINT: Creating at {filename}\n')
     with filename.open('w') as fd:
         json.dump(data, fd, cls=GeneralEncoder)

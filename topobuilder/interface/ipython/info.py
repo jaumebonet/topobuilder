@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 # This Library
-from topobuilder import plugin_source
+#from topobuilder import plugin_source
 import topobuilder
 
 __all__ = ['info_plugins']

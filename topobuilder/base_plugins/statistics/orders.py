@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -57,7 +58,7 @@ def sketch_2_master( case: Case, **kwargs ):
 
     # MASTER search
     createpds = TButil.createPDS(pdbfile)
-    TButil.plugin_bash(createpds)
+    #TButil.plugin_bash(createpds)
     run(createpds, stdout=DEVNULL)
     masters = TButil.master_best_each(pdbfile.with_suffix('.pds'), wpath['main'].joinpath('_master'), rmsd)
     data = submit_searches(masters, stepfolder, current_case_file, '.'.join([x['id'] for x in sses]))

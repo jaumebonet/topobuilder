@@ -40,7 +40,7 @@ C = TypeVar('C', bound='Case')
 
 
 class Case( object ):
-    """
+    """Builds the base Case object.
     """
     def __init__( self, init: Optional[Union[str, dict, Path, C]] = None ):
         self.data = OrderedDict()
@@ -60,7 +60,7 @@ class Case( object ):
             try:
                 self.data = json.loads("".join([x.strip() for x in open(init).readlines()]))
             except json.JSONDecodeError:
-                self.data = yaml.load(open(init))
+                self.data = yaml.load(open(init), Loader=yaml.Loader)
 
         self.check()
 
@@ -387,6 +387,14 @@ class Case( object ):
         """
         return self.cast_absolute()['configuration.flip_first']
 
+    @property
+    def mirror_beta_twist( self ) -> bool:
+        """Do we need to mirror the corrections to get the right twists?
+
+        :return: :class:`bool`
+        """
+        return self.cast_absolute()['configuration.mirror_beta_twist']
+
     def switch_flip_first_to( self, value ) -> C:
         """Change the rule on which SSE to start flipping when applying a topology.
 
@@ -552,7 +560,7 @@ class Case( object ):
         return c.check()
 
     def add_secured_topologies( self, topologies: List[C] ) -> C:
-        """
+        """Adds topologies with their respective connectivity.
         """
         c = Case(self.data)
         c.data['topology'].setdefault('connectivity', [])
@@ -629,7 +637,9 @@ class Case( object ):
                 return [r.get() for r in result]
 
     def apply_corrections( self, corrections: Optional[Union[Dict, str, Path]] = None ) -> C:
-        """
+        """Applies the corrections to the :term:`SKETCH`.
+
+        :return: corrected :class:`.Case`
         """
         if corrections is None:
             return Case(self.data).check()
@@ -645,7 +655,7 @@ class Case( object ):
             try:
                 crr = json.loads("".join([x.strip() for x in open(corrections).readlines()]))
             except json.JSONDecodeError:
-                crr = yaml.load(open(corrections))
+                crr = yaml.load(open(corrections), Loader=yaml.Loader)
             return Case(self.data).apply_corrections(crr)
 
         if isinstance(corrections, dict) and not bool(corrections):

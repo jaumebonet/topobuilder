@@ -1,0 +1,39 @@
+configuration:
+  name: 2H4E2H
+  user: bonet
+  defaults:
+    length:
+      H: 13
+      E: 7
+    distance:
+      aa: 10.0
+      ab: 11.0
+      bb_pair: 4.85
+      bb_stack: 8.0
+      max_loop: 18.97
+      loop_step: 3.2
+  relative: true
+  reoriented: false
+  flip_first: false
+  protocols:
+  - {}
+  comments:
+  - 0+untagged.162.g7a8adbd.dirty
+topology:
+  architecture:
+  - - id: A1H
+      type: H
+    - id: A2H
+      type: H
+  - - id: B1E
+      type: E
+    - id: B2E
+      type: E
+    - id: B3E
+      type: E
+    - id: B4E
+      type: E
+  - - id: C1H
+      type: H
+    - id: C2H
+      type: H

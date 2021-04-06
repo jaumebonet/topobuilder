@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -17,9 +18,12 @@ from typing import Dict, Union, Optional
 # External Libraries
 import numpy as np
 import pandas as pd
-from SBI.structure import PDB, Frame3D
+try:
+    from SBI.structure import PDB, Frame3D
+    from SBI.data import alphabet
+except ImportError:
+    pass
 from transforms3d.euler import euler2mat
-from SBI.data import alphabet
 
 # This Library
 import topobuilder.core as TBcore

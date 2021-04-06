@@ -11,7 +11,11 @@ import sys
 from io import StringIO
 
 # External Libraries
-from IPython import get_ipython
+try:
+    from IPython import get_ipython
+except ImportError:
+    def get_ipython():
+        return False
 
 # This Library
 

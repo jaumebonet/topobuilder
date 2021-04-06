@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -10,85 +11,112 @@
 from typing import List, Union, Optional, Dict
 from pathlib import Path
 import os
-import sys
 
 # External Libraries
 import matplotlib.pyplot as plt
 
 # This Library
 from topobuilder.case import Case
+from topobuilder.workflow import Node, NodeOptionsError, NodeDataError
 import topobuilder.core as TBcore
-import topobuilder.utils as TButil
 from . import plot_types as pts
 
-__all__ = ['metadata', 'apply']
+__all__ = ['plotter']
 
 _PLT_TYPES_ = ['sketchXZ', 'sketchXY']
 
 
-def metadata() -> Dict:
-    """Plugin description.
+class plotter( Node ):
+    """Create visual representations of the :term:`FORM`.
 
-    It includes:
+    .. note::
+        Depends on the ``system.image`` configuration option
 
-    - ``name``: The plugin identifier.
-    - ``Itags``: The metadata tags neccessary to execute.
-    - ``Otags``: The metadata tags generated after a successful execution.
-    - ``Isngl``: When :data:`True`, input requires single connectivity.
-    - ``Osngl``: When :data:`True`, output guarantees single connectivity.
+    .. admonition:: To Developers
+
+        This :class:`.Node` overwrite the execute function to be able to generate
+        multi-Case images.
+
+    :param outfile: Selected outfile/outdir for the plot.
+    :param prefix: File prefix if outfile is a dir.
+    :param plot_types: Select the expected plot (from available options).
+
+    For each plot type, a dict can be provided with extra parameters to control plotting.
+    Parameters are defined for :meth:`.plot_case_sketch`
+
+    :raises:
+        :NodeOptionsError: On **initialization**. If an unknown plot is required.
+        :NodeDataError: On **check**. If the required fields to be executed are not there.
+        :NodeDataError: On **execution**. If the requested corrections do not meet the criteria imposed by the
+            :term:`FORM`.
+
     """
-    def isngl( count ):
-        return True
+    REQUIRED_FIELDS = ('topology.architecture', )
+    RETURNED_FIELDS = ()
+    PLOT_TYPES = ['sketchXZ', 'sketchXY']
+    VERSION = 'v1.0'
 
-    return {'name': 'plotter',
-            'Itags': [],
-            'Otags': [],
-            'Isngl': isngl,
-            'Osngl': False}
+    def __init__( self, tag: int,
+                  outfile: Optional[Union[str, Path]] = None,
+                  prefix: Optional[str] = None,
+                  plot_types: Optional[List[str]] = None,
+                  **kwargs ):
+        super(plotter, self).__init__(tag)
 
+        self.outfile = outfile
+        self.prefix = prefix
+        self.plot_types = [self.PLOT_TYPES[0], ] if plot_types is None else plot_types
+        self.plot_params = {}
+        for ptype in self.plot_types:
+            self.plot_params.setdefault(ptype, kwargs.pop(ptype, {}))
 
-def apply( cases: List[Case],
-           prtid: int,
-           outfile: Optional[Union[str, Path]] = None,
-           prefix: Optional[str] = None,
-           plot_types: Optional[List[str]] = None,
-           **kwargs ) -> List[Case]:
-    """Generate visual representations of the Case.
-    """
-    TButil.plugin_title(__file__, len(cases))
+        if len(set(self.plot_types).difference(self.PLOT_TYPES)) > 0:
+            raise NodeOptionsError(f'Unknown plot format. Available are: {",".join(self.PLOT_TYPES)}')
 
-    # File management
-    if outfile is None:
-        outfile = cases[0].main_path.joinpath('images').resolve()
-        outfile.mkdir(parents=True, exist_ok=True)
-    if isinstance(outfile, str):
-        outfile = Path(outfile).resolve()
+    def single_check( self, dummy: Dict ) -> Dict:
+        kase = Case(dummy)
 
-    outformat = TBcore.get_option('system', 'image')
+        # Check what it needs
+        for itag in self.REQUIRED_FIELDS:
+            if kase[itag] is None:
+                raise NodeDataError(f'Field "{itag}" is required')
 
-    # Checking available plot_types
-    plot_types = [_PLT_TYPES_[0], ] if plot_types is None else plot_types
-    if len(set(plot_types).difference(_PLT_TYPES_)) > 0:
-        raise ValueError('Requested unknown plot format. '
-                         'Available are: {}'.format(','.join(_PLT_TYPES_)))
+        # Include what keywords it adds (in this instance, nothing)
+        return kase.data
 
-    for ptype in plot_types:
-        if outfile.is_dir():
-            prefix = prefix if prefix is not None else ".".join([str(os.getppid()), '{:02d}'.format(prtid)])
-            thisoutfile = outfile.joinpath(".".join([prefix, ptype + outformat]))
-        else:
-            thisoutfile = Path(str(outfile) + '.' + ptype + outformat)
-        thisoutfile.parent.mkdir(parents=True, exist_ok=True)
-        if not TBcore.get_option('system', 'overwrite') and thisoutfile.is_file():
-            sys.stderr.write('Unable to overwrite file {}: Already exists\n'.format(thisoutfile))
-            continue
+    def execute( self, data: List[Dict] ) -> List[Dict]:
+        kase = Case(data[0])
 
-        fig, ax = getattr(pts, ptype)(cases, **kwargs.pop(ptype, {}))
-        plt.tight_layout()
-        plt.savefig(str(thisoutfile), dpi=300)
+        # File management
+        if self.outfile is None:
+            self.outfile = kase.main_path.joinpath('images').resolve()
+            self.outfile.mkdir(parents=True, exist_ok=True)
+        if isinstance(self.outfile, str):
+            self.outfile = Path(self.outfile).resolve()
 
-        TButil.plugin_imagemaker('Creating new image at: {}'.format(str(thisoutfile)))
+        # Get output format
+        outformat = TBcore.get_option('system', 'image')
 
-    for i, case in enumerate(cases):
-        cases[i] = case.set_protocol_done(prtid)
-    return cases
+        for ptype in self.plot_types:
+            if self.outfile.is_dir():
+                self.prefix = self.prefix if self.prefix is not None else ".".join([str(os.getppid()), f'{ptype}'])
+                thisoutfile = self.outfile.joinpath(".".join([self.prefix, ptype + outformat]))
+            else:
+                thisoutfile = Path(str(self.outfile) + '.' + ptype + outformat)
+            thisoutfile.parent.mkdir(parents=True, exist_ok=True)
+            if not TBcore.get_option('system', 'overwrite') and thisoutfile.is_file():
+                self.log.warning(f'Unable to overwrite file {thisoutfile}: Already exists')
+                continue
+
+            if not self.plot_params[ptype]:
+                fig, ax = getattr(pts, ptype)(self.log, [Case(i) for i in data])
+            else:
+                fig, ax = getattr(pts, ptype)(self.log, [Case(i) for i in data], self.plot_params[ptype])
+            plt.tight_layout()
+            plt.savefig(str(thisoutfile), dpi=300)
+
+            self.log.info(f'Creating new image at: {str(thisoutfile)}')
+            return data
+
+    def single_execute( self, data: Dict ) -> Dict:
+        return data
