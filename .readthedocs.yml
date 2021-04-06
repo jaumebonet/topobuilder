@@ -8,7 +8,7 @@ sphinx:
 formats: all
 
 build:
-  image: master
+  image: latest
 
 python:
   version: 3.7
