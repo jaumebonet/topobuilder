@@ -30,7 +30,11 @@ __all__ = ['slurm_header', 'slurm_pyenv', 'submit_slurm', 'submit_nowait_slurm',
 
 def submit_slurm( log: Logger, slurm_file: Union[Path, str],
                   condition_file: Optional[Union[Path, str]] = None ):
-    """
+    """Submits a slurm file.
+
+    :param log: Job Logger.
+    :param slurm_file: Slurm file to be submitted.
+    :param condition_file: The name of the condition file to track status.
     """
     slurm_control_file = (Path(tempfile.mkdtemp('slurm_control'))
                           .joinpath(f'slurm_control.{os.getpid()}.sh'))
@@ -47,7 +51,12 @@ def submit_nowait_slurm( log: Logger, slurm_file: Union[Path, str],
                          dependency_mode: Optional[str] = None,
                          dependency_id: Optional[int] = None
                          ) -> int:
-    """
+    """Submits a slurm file with dependency on all arrays to finish.
+
+    :param log: Job Logger.
+    :param slurm_file: Slurm file to be submitted.
+    :param dependency_mode: The dependency status.
+    :param dependency_id: The dependency ID for tracking the submitted job.
     """
     command = ['sbatch']
     if dependency_mode is not None and dependency_id is not None:

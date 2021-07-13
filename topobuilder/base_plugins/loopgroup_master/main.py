@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -54,14 +55,14 @@ class loopgroup_master( Node ):
         Due to its use in multiple :class:`.Node`, functions to deal with master are mostly located
         in the :mod:`.utils` module.
 
+    :param loop_groups: The different groups of loops to consider together.
     :param loop_range: Expected loop length is calculated from the euclidian distance between two secondary
         structures. This attribute adds a window of ``loop_range`` residues under and over the calculated
-        length.
-    :param top_loops: Number of loops that are selected from the sorted matches to retrieve final loop candidates.
-    :param hairpins_2: When :data:`True`, enforce 2-residue loops on beta hairpins.
-    :param rmsd_cut: Threshold value to include loops as match candidates.
-    :param filter: List of PDB identifiers to use for the search. If nothing is provided, the full database,
-        as defined by the ``master.pds`` global option, will be used.
+        length (default: 3).
+    :param top_loops: Number of loops that are selected from the sorted matches to retrieve
+        final loop candidates (default: 20).
+    :param hairpins_2: When :data:`True`, enforce 2-residue loops on beta hairpins (default: True).
+    :param rmsd_cut: Threshold value to include loops as match candidates (default: 5.0).
 
     :raises:
         :NodeDataError: On **initialization**. If the PDS database, the ABEGO or fragments cannot be found.
@@ -337,7 +338,7 @@ class loopgroup_master( Node ):
             dfloop_copy = dfloop_copy.iloc[:self.top_loops]
             dfloop_copy['length_count'] = dfloop_copy.loop_length.map(dfloop_copy.loop_length.value_counts())
             finaldf = dfloop_copy.sort_values('rmsd').drop_duplicates(['loop'])
-            
+
             is_hairpin = self.check_hairpin(pname[0], pname[1])
             if self.pick_by == 'minimal':
                 pick = finaldf['loop_length'].min()

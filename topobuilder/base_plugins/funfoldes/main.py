@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -35,8 +36,10 @@ class funfoldes( Node ):
         to be generated via the `nstruct` parameter option.
 
 
-    :param nstruct: Number of decoys to be generated (default: 2000).
+    :param nstruct: Number of decoys to be generated during assembly stage (default: 2000).
+    :param nstruct_design: Number of decoys to be generated during design stage (default: 10).
     :param natbias: Score function bias towards per secondary structure types (default: 2.5).
+    :param profile: Use a sequence profile derived from structure fragments for design (default: False).
     :param layer_design: If :class:`funfoldes` should a layer design approach (default: True).
 
     :raises:

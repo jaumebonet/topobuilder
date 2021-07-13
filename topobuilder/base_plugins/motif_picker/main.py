@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -77,7 +78,6 @@ class motif_picker( Node ):
                   selection: str,
                   hotspot: str,
                   attach: Union[str, List[str]],
-                  #shape: Union[str, List[str]],
                   binder: Optional[str] = None,
                   identifier: Optional[str] = None ):
         super(motif_picker, self).__init__(tag)

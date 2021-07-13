@@ -37,7 +37,13 @@ def plot_fragment_templates( log: Logger,
                              prefix: Union[Path, str],
                              write: bool = True
                              ) -> Tuple[plt.Figure, Path]:
-    """
+    """Plots the fragment sources across the sequence.
+
+    :param log: Job Logger.
+    :param dfsmall: Small fragment set.
+    :param dflarge: Large fragment set.
+    :param prefix: Prefix for plot name.
+    :param write: Shall the plot by saved (default: True).
     """
     fig = plt.figure(figsize=(20, 8))
     ax0 = plt.subplot2grid((2, 1), (0, 0), fig=fig)
@@ -75,7 +81,14 @@ def plot_loop_length_distribution( log: Logger,
                                    title: str,
                                    write: bool = True
                                    ) -> Tuple[plt.Figure, Path]:
-    """
+    """Plots the loop length count distribution for a jump.
+
+    :param log: Job Logger.
+    :param dfloop: Loop set for a particular jump.
+    :param pick: The selected length that was picked (for annotation on the plot).
+    :param prefix: Prefix for plot name.
+    :param title: Plot title.
+    :param write: Shall the plot by saved (default: True).
     """
     fig = plt.figure()
     ax = plt.subplot2grid((1, 1), (0, 0), fig=fig)
@@ -100,7 +113,14 @@ def plot_match_bin( log: Logger,
                     groupby: Optional[List] = None,
                     write: bool = True
                     ) -> Tuple[plt.Figure, Path]:
-    """
+    """Plots the number of matches per defined bin of the :ref:`MASTER` search.
+
+    :param log: Job Logger.
+    :param master_match: Collected :ref:`MASTER` matches.
+    :param prefix: Prefix for plot name.
+    :param expected: Limitation of y-axis height.
+    :param groupby: Groups to order by (e.g. close, mid, far, extreme).
+    :param write: Shall the plot by saved (default: True).
     """
     fig = plt.figure(figsize=[15, 5])
     ax = plt.subplot2grid((1, 1), (0, 0), fig=fig)
@@ -132,7 +152,12 @@ def plot_geometric_distributions( log: Logger,
                                   prefix: Union[Path, str],
                                   write: bool = True
                                   ) -> Tuple[plt.Figure, Path]:
-    """
+    """Plots the per SSE geometrical distributions from the :ref:`MASTER` search.
+
+    :param log: Job Logger.
+    :param df: Calculated geometric statistics from the :ref:`MASTER` search.
+    :param prefix: Prefix for plot name.
+    :param write: Shall the plot by saved (default: True).
     """
     ordering = sorted(df.sse.unique())
     fig = plt.figure(figsize=[15, 15])
@@ -168,7 +193,14 @@ def plot_angle_network( log: Logger,
                         prefix: Union[Path, str],
                         write: bool = True
                         ) -> Tuple[plt.Figure, Path]:
-    """
+    """Plots the per SSE geometrical distributions from the :ref:`MASTER` search.
+
+    :param log: Job Logger.
+    :param network: Network Graph to use for angle network.
+    :param node_positions: Positions of the nodes (SSEs).
+    :param sse_list: The SSEs to be considered.
+    :param prefix: Prefix for plot name.
+    :param write: Shall the plot by saved (default: True).
     """
     fig = plt.figure(figsize=[25, 25])
     ax = plt.subplot2grid((1, 1), (0, 0), fig=fig)

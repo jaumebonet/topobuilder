@@ -1,9 +1,12 @@
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
+
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
     Bruno Correia <bruno.correia@epfl.ch>
 """
+
 # Standard Libraries
 import textwrap
 import math
@@ -31,7 +34,7 @@ class ScriptPieces( dict ):
         return data
 
 def get_weight_patches():
-    """
+    """Defines the weights sets used during folding.
     """
     wts0 = textwrap.dedent("""\
     # score0 from rosetta++, used in stage 1 of the
@@ -198,7 +201,10 @@ def get_weight_patches():
 
 
 def constraint_minimization(  case: Case, natbias: float ) -> ScriptPieces:
-    """
+    """Creates the minimization script upon a :class:`.Case` with constraints.
+
+    :param case: The case to use for constraints.
+    :param natbias: The bias weight to favour correct SSE formation.
     """
     scorefxns = [textwrap.dedent("""\
     <ScoreFunction name="sfxn_cstmin" weights="ref2015">
@@ -247,7 +253,14 @@ def constraint_design( case: Case, natbias: float, layer_design: bool = True,
                        hotspots: Optional[List] = None,
                        profile: Optional[bool] = False,
                       ) -> ScriptPieces:
-    """
+    """Creates the design script upon a :class:`.Case` with constraints.
+
+    :param case: The case to use for constraints.
+    :param motif: The motif to be inserted and kept fixed.
+    :param binder: The context structure to be added during design.
+    :param hotspots: Motif hotspot residue to keep completely fixed.
+    :param profile: Sequence profile from fragments to guide design (default: False).
+    :param natbias: The bias weight to favour correct SSE formation.
     """
     scorefxns = [textwrap.dedent("""\
     <ScoreFunction name="sfxn_cstdes" weights="ref2015">
@@ -432,12 +445,15 @@ def funfoldes( case: Case,
                hotspots: Optional[List] = None
               ) -> str:
     """
-    The general FunFoldDesMover.
+    The general FunFoldDesMover script where input pose is the template, where the motif will be grafted into.
+    Thus, if a binder is present, one needs to remove that one before running the NubInitioMover.
+    The binder will be parsed together with the motif. Note, that after the NubInitioMover, the binder will
+    be in the pose. We remove the binder as it is easier to work with files containing only the design afterwards.
 
-    The input pose is the template, where the motif will be grafted into. Thus, if a binder is
-    present, one needs to remove that one before running the NubInitioMover. The binder will be parsed together
-    with the motif. Note, that after the NubInitioMover, the binder will be in the pose. We remove the binder as
-    it is easier to work with files containing only the design afterwards.
+    :param case: The case to use for constraints.
+    :param motif: The motif to be inserted and kept fixed.
+    :param binder: The context structure to be added during design.
+    :param hotspots: Motif hotspot residue to keep completely fixed.
     """
     if motif and binder: # binder loaded after
         coldspots = [s[:-1] for s in motif if s not in hotspots]
@@ -528,6 +544,18 @@ def funfoldes( case: Case,
 
 def hybridize( case: Case, template: str, natbias: float ) -> str:
     """
+    Creates the hybridize script upon a :class:`.Case` with constraints.
+
+    .. caution::
+        Please be careful with the energy function setup.
+
+    .. admonition:: To Developers
+
+        This implementation has not been fully tested and optimized.
+
+    :param case: The case to use for constraints.
+    :param template: The template apply the hybridization onto.
+    :param natbias: The bias weight to favour correct SSE formation.
     """
     #mid = math.floor(len(case.secondary_structure) / 2)
     mid = 2
@@ -620,7 +648,7 @@ def hybridize( case: Case, template: str, natbias: float ) -> str:
 
 
 def rosettascript( data: Dict ) -> str:
-    """
+    """Global RosettaScripts XML template script.
     """
     if 'output' in data and isinstance(data['output'], list):
         data['output'] = data['output'][0]
@@ -650,7 +678,13 @@ def SELECTOR_SecondaryStructure( name: str,
                                  sse_type: str = 'HE',
                                  terminal_loops: bool = False
                                  ) -> str:
-    """
+    """Selects the secondary structure elements (SSEs).
+
+    :param name: Name to give to the selector.
+    :param sse: The SSEs to take into account.
+    :param sse_type: The SSE types to take into account,
+        either helix (H) or strands (E) (default: HE).
+    :param terminal_loops: Should terminal loops be included (default: False).
     """
     if isinstance(sse, Case):
         sse = sse.secondary_structure
@@ -661,7 +695,12 @@ def SELECTOR_SecondaryStructure( name: str,
 
 
 def MOVER_SetSecStructEnergies( name: str, score: str, natbias: float, case: Case ) -> str:
-    """
+    """Sets the SSE energy bias term.
+
+    :param name: Name to give to the mover.
+    :param score: The scorefunction to be modified.
+    :param natbias: The bias weight.
+    :param case: Case to take into account for SSE selection.
     """
     data = dict(zip(['ss_pair', 'hh_pair', 'hss_triplets'], case.sse_pairing))
     data['sse'] = case.secondary_structure
@@ -681,7 +720,11 @@ def MOVER_SetSecStructEnergies( name: str, score: str, natbias: float, case: Cas
 
 
 def MOVER_PeptideStubMover( name: str, case: Case, residue: str = 'VAL' ) -> str:
-    """
+    """Adds residues to an existing pose.
+
+    :param name: Name to give to the mover.
+    :param residue: The residue type that shall be added (default: 'VAL').
+    :param case: Case to add residues to.
     """
     return Template(textwrap.dedent("""\
         <PeptideStubMover name="{{name}}" reset="false">
@@ -693,7 +736,10 @@ def MOVER_PeptideStubMover( name: str, case: Case, residue: str = 'VAL' ) -> str
 
 
 def PROTOCOL_LayerDesign( case: Case ) -> ScriptPieces:
-    """
+    """Creates the layer design protocol, where a protein is split into a core, boundary and
+    surface layer where different AA are prefered. This happens on a per-residue level.
+
+    :param case: Case to calculate the layers from.
     """
     residueselectors = [textwrap.dedent("""\
         <Layer name="surface" select_core="0" select_boundary="0" select_surface="1" use_sidechain_neighbors="1"/>
@@ -731,7 +777,10 @@ def PROTOCOL_LayerDesign( case: Case ) -> ScriptPieces:
 
 
 def PROTOCOL_BasicFilters( case: Case, suffix: str = '' ) -> ScriptPieces:
-    """
+    """A wrapper protocol around basic filters and score terms.
+
+    :param case: Case to be used for filter and score calculations.
+    :param suffix: The suffix to be appended to the output score names.
     """
     sse = case.secondary_structure
 

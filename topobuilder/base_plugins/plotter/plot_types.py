@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 .. codeauthor:: Jaume Bonet <jaume.bonet@gmail.com>
+.. codeauthor:: Zander Harteveld <zandermilanh@gmail.com>
 
 .. affiliation::
     Laboratory of Protein Design and Immunoengineering <lpdi.epfl.ch>
@@ -81,7 +82,7 @@ def sketchXY( log: Logger, cases: List[Case], **kwargs ) -> Tuple[plt.Figure, Li
         position = (int(i / grid[1]), i % grid[1])
         title = '{0}_{1:03d}'.format(case['configuration.name'], i + 1)
         log.info(f'Showing {title}-{case.architecture_str} in position: {position[0]}x{position[1]}\n')
-        
+
         lcaxs = []
         for xx in range(lcount):
             p = list(copy.deepcopy(position))

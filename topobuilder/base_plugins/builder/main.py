@@ -42,9 +42,11 @@ class builder( Node ):
         needs to be set in the :class:`.Pipeline`.
 
     :param connectivity: Expected secondary structure connectivity. *Important*: at the moment only a single
-                         connectivity supported.
+                         connectivity supported (default: True).
+    :param motif: Expected Motif to be added to the :term:`SKETCH` (default: False).
     :param pick_aa: Desired amino acid type to use for the :term:`SKETCH` sequence. If not specified, it will
                     use pseudorandomly assign amino acid types based on secondary structure propensity scores.
+    :param write2disc: Dump the :term:`SKETCH` (default: True).
 
     :raises:
         :NodeDataError: On **check**. If the required fields to be executed are not there.

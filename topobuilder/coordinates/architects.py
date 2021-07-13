@@ -71,9 +71,9 @@ class GeneralArchitect( object ):
         """
         sselist = []
         for ilayer, layer in enumerate(self.case.data['topology']['architecture']):
-            print('building layer {}'.format(ilayer + 1))
+            #print('building layer {}'.format(ilayer + 1))
             for iss, ss in enumerate(layer):
-                print('  building SSE {}'.format(iss + 1))
+                #print('  building SSE {}'.format(iss + 1))
                 # sselist.append(SSEArchitect(ss, type=ss['type']).pdb)
                 # sselist[-1].write('test{}.pdb'.format(iss), format='pdb')
                 coordinates = [ss['coordinates']['x'], ss['coordinates']['y'], ss['coordinates']['z']]
