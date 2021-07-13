@@ -90,7 +90,7 @@ def createPDS( infile: Union[Path, str], outfile: Optional[str] = None ) -> List
     if not infile.is_file():
         raise NodeDataError(f'Unable to find structure file {infile}')
     outfile = outfile if outfile is not None else infile.with_suffix('.pds')
-    return shlex.split(f'{createPDS} --type query --pdb {str(infile)} --pds {str(outfile)}')
+    return shlex.split(f'{createPDS} --type query --pdb {str(infile)} --pds {str(outfile)}  --dCut 100')
 
 
 def master_best_each( log: Logger,
