@@ -47,13 +47,15 @@ def read_tmalign(folder):
     :return: pandas DataFrame with info.
     """
     # Set frame
-    d = {'description': [], 'target': [],
+    d = {'description': [], #'target': [],
          'l_description': [], 'l_target': [],
          'tm_score': [], 'rmsd': [], 'seqid': [], 'n_aligned': [],
          'alignment': []}
 
     # Read files
     for filename in glob.iglob(f'{folder}_trRosetta*'):
+       base = filename.split('.')[-1]
+       sys.stdout.write(f'Base name: {base}\n')
        with open(filename, 'r') as f:
           lines = f.readlines()
 
@@ -63,14 +65,16 @@ def read_tmalign(folder):
        for line in lines:
           # Note that chain 1 gets superimposed onto chain 2,
           # thus we save chain 1 under name2 and viceversa
-          if line.startswith('Name of Chain_1'):
-             name2 = [s.strip() for s in line.split() if s.endswith('.pdb')][0]
+          # long names get choped of by the TMalign application,
+          # we thus write the names directly into the filenames and parse them from there.
+          #if line.startswith('Name of Chain_1'):
+             #name2 = [s.strip() for s in line.split() if s.endswith('.pdb')][0]
              #name2 = [s.strip() for s in line.split()][-1]
-             name2 = os.path.basename(name2).replace('.pdb', '')
-          if line.startswith('Name of Chain_2'):
-             name1 = [s.strip() for s in line.split() if s.endswith('.pdb')][0]
+             #name2 = os.path.basename(name2).replace('.pdb', '')
+          #if line.startswith('Name of Chain_2'):
+             #name1 = [s.strip() for s in line.split() if s.endswith('.pdb')][0]
              #name1 = [s.strip() for s in line.split()][-1]
-             name1 = os.path.basename(name1).replace('.pdb', '')
+             #name1 = os.path.basename(name1).replace('.pdb', '')
           if line.startswith('Length of Chain_1'):
              l2 = int(line.split()[-2].strip())
           if line.startswith('Length of Chain_2'):
@@ -96,8 +100,8 @@ def read_tmalign(folder):
                 _alignment += 1
 
        # Save
-       d['description'].append(name2)
-       d['target'].append(name1)
+       d['description'].append(base)
+       #d['target'].append(name1)
        d['l_description'].append(l1)
        d['l_target'].append(l2)
        d['tm_score'].append(tmscore)
@@ -119,9 +123,9 @@ def main():
     out_file = args.out_file[0]
 
     # Fetch and write
-    #sys.stdout.write(f'Reading from: {tmalign_folder}\n')
+    sys.stdout.write(f'Reading from: {tmalign_folder}\n')
     df = read_tmalign(tmalign_folder)
-    #sys.stdout.write(f'Writing file: {out_file}.csv\n')
+    sys.stdout.write(f'Writing file: {out_file}\n')
     df.to_csv(f'{out_file}')
 
 

@@ -288,11 +288,12 @@ class statistics( Node ):
                     f.write('SLURM_ARRAY_TASK_ID=$1\n\n')
                     for pdbfile in glob.iglob(str(thisfolder) + '/*/*.pdb'):
                         base = pdbfile.replace('.pdb', '')
+                        basename = os.path.basename(pdbfile).replace('.pdb', '')
                         slurmarray = pdbfile.split('/')[-2]
                         modelnumber = pdbfile.split('_')[-1].replace('.pdb', '')
                         f.write(f'\n\nif (( ${{SLURM_ARRAY_TASK_ID}} == {slurmarray} )); then')
                         f.write(f'\npython {core.get_option("statistics", "trrosetta_repo")}trRosetta_modelling/trRosetta.py {base}.npz {base}.a3m {base}_tr001.{slurmarray}.pdb')
-                        f.write(f'\n{core.get_option("statistics", "tmalign")} {base}.pdb {base}_tr001.{slurmarray}.pdb > {str(thisfolder.joinpath(slurmarray))}/_trRosetta.{modelnumber}.{slurmarray}')
+                        f.write(f'\n{core.get_option("statistics", "tmalign")} {base}.pdb {base}_tr001.{slurmarray}.pdb > {str(thisfolder.joinpath(slurmarray))}/_trRosetta.{modelnumber}.{slurmarray}.{basename}')
                         f.write('\nfi')
                 cmd.extend([f'\nbash {wfolder}/exec_trRosetta_relax.sh ${{SLURM_ARRAY_TASK_ID}}'])
 
