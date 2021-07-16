@@ -52,6 +52,8 @@ setup(
     platforms='UNIX',
     keywords='development',
 
+    dependency_links=['https://github.com/jaumebonet/RosettaSilentToolbox/tree/zanderharteveld/write_pssm_fix'],
+
     install_requires=[x.strip() for x in open('REQUIREMENTS').readlines()],
 
     packages=find_packages(exclude=['docs', 'demo']),
