@@ -915,8 +915,9 @@ class imaster( Node ):
 
         wwd = unimaster.parent.parent
         cwd = Path().cwd()
+        sys.stdout.write(str(wwd))
+        sys.stdout.write(('\n'))
         os.chdir(str(wwd))
-
         for i, com in enumerate(cmd):
             cmd[i][2] = str(Path(com[2]).relative_to(wwd))
             cmd[i][-1] = str(Path(com[-1]).relative_to(wwd))
