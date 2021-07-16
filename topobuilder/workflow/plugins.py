@@ -30,7 +30,7 @@ def find_all_plugins():
 
     tp_plugin_dirs = [str(Path(__file__).parent.parent.joinpath('base_plugins')), ]
     try:
-        tp_plugin_dirs.append(os.environ['TOPOBULDERPLUGINS'])
+        tp_plugin_dirs.append(os.environ['TOPOBUILDERPLUGINS'])
     except KeyError:
         pass
     return tp_plugin_dirs
