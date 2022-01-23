@@ -1,4 +1,4 @@
-![Alt text](img/tblogo.png)
+.. image:: img/tblogo.png
 
 TopoBuilder
 ===========
@@ -44,4 +44,4 @@ The code lives within the [topobuilder](topobuilder/) directory. We will briefly
 * utils: Utility functions shared across multiple plugins.
 * base_plugins: Various plugins to do different manipulations on the case object.
 
-Please see the documentation for further explanation of all entry-points, plugins (and how to create your own custom plugin) and utilities available. Additional, we explain how to setup a pipeline and showcase different examples [here](https://github.com/zanderharteveld/TopoBuilderData).
+Please see the documentation for further explanation of all entry-points, plugins (and how to create your own custom plugin) and utilities available. Additional, we explain how to setup a pipeline and showcase different examples `here <https://github.com/LPDI-EPFL/TopoBuilderData>`_.
